@@ -2,11 +2,11 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@/lib/prisma"
 
-// FIX: We export this object so other API routes can check if a user is logged in
+// FIX: This 'export' is required because other files import 'authOptions' directly
 export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt" as const }, // 'as const' fixes a common TypeScript warning
-  
+  session: { strategy: "jwt" as const },
+
   providers: [
     CredentialsProvider({
       name: "Credentials",
