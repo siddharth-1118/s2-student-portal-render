@@ -29,7 +29,7 @@ export default async function MyMarksPage() {
     <main style={{ padding: 24 }}>
       <h1>My Marks</h1>
       <p>Name: {student.name}</p>
-      <p>Roll: {student.roll}</p>
+      <p>Roll: {student.registerNo}</p>
       <a href="/">← Back to Home</a>
 
       <div style={{ marginTop: 24 }}>

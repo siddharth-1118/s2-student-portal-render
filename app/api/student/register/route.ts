@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma"; // Make sure this path is correct
 
 const validStudents = [
+  { roll: "RA2511026010868", name: "GURRAM VINAY JASWANTH" }, // Added missing first student
   { roll: "RA2511026010869", name: "VARNIKA JAIN" },
   { roll: "RA2511026010870", name: "KONDA VEERAVENKATAGANESH" },
   { roll: "RA2511026010871", name: "Y HARSHITHA" },
@@ -79,23 +80,40 @@ const validStudents = [
 export async function POST(req: NextRequest) {
   const { email, roll } = await req.json();
 
+  // 1. Check if the provided roll number is in our allowed list
   const validStudent = validStudents.find(s => s.roll === roll);
   
   if (!validStudent) {
     return NextResponse.json({ ok: false, error: "Register number not found in class list" });
   }
 
-  const existing = await prisma.student.findUnique({ where: { roll } });
+  // 2. Look up the student in the database using the correct field 'registerNo'
+  // Your Schema calls it 'registerNo', so we must use that instead of 'roll'
+  const existing = await prisma.student.findUnique({ 
+    where: { registerNo: roll } // Map 'roll' from input to 'registerNo' in DB
+  });
   
+  // 3. Validation: If email is already taken by someone else (optional check, depends on your logic)
   if (existing && existing.email && existing.email !== email) {
     return NextResponse.json({ ok: false, error: "Register number already linked to another account" });
   }
 
-  await prisma.student.upsert({
-    where: { roll },
-    update: { email, name: validStudent.name },
-    create: { roll, name: validStudent.name, email },
-  });
+  // 4. Update or Create the student
+  if (existing) {
+    await prisma.student.update({
+      where: { id: existing.id },
+      data: { email, name: validStudent.name },
+    });
+  } else {
+    // When creating, we must use the correct schema field names
+    await prisma.student.create({
+      data: { 
+        registerNo: roll, // Use 'registerNo' here!
+        name: validStudent.name, 
+        email 
+      },
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

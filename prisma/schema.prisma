@@ -1,24 +1,26 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
+  // DO NOT PUT URL HERE
 }
 
 model Student {
-  id        Int     @id @default(autoincrement())
-  roll      String  @unique
-  name      String
-  email     String? @unique
-  marks     Mark[]
+  id         Int     @id @default(autoincrement())
+  registerNo String  @unique
+  name       String
+  email      String? @unique
+  marks      Mark[]
 }
 
 model Mark {
   id        Int     @id @default(autoincrement())
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId Int
-
   subject   String
   examType  String
   maxMarks  Int
@@ -26,9 +28,9 @@ model Mark {
 }
 
 model TimetableEntry {
-  id        Int    @id @default(autoincrement())
-  day       String
-  period    Int
-  subject   String
-  room      String?
+  id      Int     @id @default(autoincrement())
+  day     String
+  period  Int
+  subject String
+  room    String?
 }
