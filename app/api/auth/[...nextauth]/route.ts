@@ -3,39 +3,32 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@/lib/prisma"
 
 const handler = NextAuth({
-  // FIX: Explicitly use the secret from Vercel settings
   secret: process.env.NEXTAUTH_SECRET,
-
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
 
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        username: { label: "Register Number", type: "text" },
+        username: { label: "Register No", type: "text" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials, req) {
-        // 1. Check if user typed something
+      async authorize(credentials: any) {
         if (!credentials?.username) return null;
-
-        // 2. Find the student in the database
+        
         const student = await prisma.student.findUnique({
           where: { registerNo: credentials.username }
         });
 
-        // 3. If student found, log them in
         if (student) {
+          // FIX: Convert ID to string and cast to 'any' to stop TypeScript errors
           return { 
             id: String(student.id), 
             name: student.name, 
-            email: student.registerNo // Using RegisterNo as email for uniqueness
-          };
+            email: student.registerNo 
+          } as any;
         }
-
-        // 4. If not found, login fails
+        
         return null;
       }
     })
