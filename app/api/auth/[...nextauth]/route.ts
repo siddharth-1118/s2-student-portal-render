@@ -1,38 +1,45 @@
-import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@next-auth/prisma-adapter"; // You might need to install this
-import { prisma } from "@/lib/prisma";
+import NextAuth from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { prisma } from "@/lib/prisma"
 
 const handler = NextAuth({
-  // FIX 1: Explicitly tell NextAuth to use the secret
+  // FIX: Explicitly use the secret from Vercel settings
   secret: process.env.NEXTAUTH_SECRET,
-  
-  // FIX 2: Connect NextAuth to your Vercel Postgres database
-  adapter: PrismaAdapter(prisma),
 
   session: {
-    strategy: "jwt", // Use JWT to avoid database session lookup costs on Vercel
+    strategy: "jwt",
   },
-  
+
   providers: [
-    // Keep your existing Credential provider or Google provider here.
-    // Since I don't see your original code, I'll add a standard Credentials placeholder.
-    // REPLACE THIS with your actual providers if they are different!
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        username: { label: "Username", type: "text" },
+        username: { label: "Register Number", type: "text" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        // Simple check to allow sign in (Update logic as needed)
-        if (credentials?.username) {
-           return { id: "1", name: credentials.username, email: "user@example.com" }
+        // 1. Check if user typed something
+        if (!credentials?.username) return null;
+
+        // 2. Find the student in the database
+        const student = await prisma.student.findUnique({
+          where: { registerNo: credentials.username }
+        });
+
+        // 3. If student found, log them in
+        if (student) {
+          return { 
+            id: student.id, 
+            name: student.name, 
+            email: student.registerNo // Using RegisterNo as email for uniqueness
+          };
         }
+
+        // 4. If not found, login fails
         return null;
       }
     })
   ],
-});
+})
 
-export { handler as GET, handler as POST };
+export { handler as GET, handler as POST }
