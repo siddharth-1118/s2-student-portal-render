@@ -9,7 +9,7 @@ const ADMIN_EMAILS = [
   "kothaig2@srmist.edu.in",
 ];
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -18,7 +18,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const studentId = parseInt(params.id);
+    const { id } = await params;
+    const studentId = parseInt(id);
     if (isNaN(studentId)) {
       return NextResponse.json({ error: "Invalid student ID" }, { status: 400 });
     }

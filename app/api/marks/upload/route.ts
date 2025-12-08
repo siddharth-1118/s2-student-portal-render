@@ -9,6 +9,60 @@ const ADMIN_EMAILS = [
   "kothaig2@srmist.edu.in",
 ];
 
+// Simple AI analysis function for demo purposes
+function analyzeStudentPerformance(marks: any[]) {
+  if (marks.length === 0) return "No marks data available";
+  
+  const totalSubjects = marks.length;
+  const passedSubjects = marks.filter(mark => 
+    mark.scored >= (mark.maxMarks * 0.4) // Assuming 40% is pass mark
+  ).length;
+  
+  const averagePercentage = marks.reduce((sum, mark) => 
+    sum + (mark.scored / mark.maxMarks) * 100, 0) / marks.length;
+  
+  let performanceLevel = "";
+  if (averagePercentage >= 90) performanceLevel = "Excellent";
+  else if (averagePercentage >= 75) performanceLevel = "Good";
+  else if (averagePercentage >= 60) performanceLevel = "Average";
+  else if (averagePercentage >= 40) performanceLevel = "Below Average";
+  else performanceLevel = "Needs Improvement";
+  
+  return {
+    totalSubjects,
+    passedSubjects,
+    averagePercentage: averagePercentage.toFixed(2),
+    performanceLevel,
+    recommendations: generateRecommendations(marks)
+  };
+}
+
+function generateRecommendations(marks: any[]) {
+  const recommendations = [];
+  
+  // Subject-wise recommendations
+  marks.forEach(mark => {
+    const percentage = (mark.scored / mark.maxMarks) * 100;
+    if (percentage < 40) {
+      recommendations.push(`Focus more on ${mark.subject}. Consider extra study hours or tutoring.`);
+    } else if (percentage < 60) {
+      recommendations.push(`Improve in ${mark.subject} with additional practice.`);
+    }
+  });
+  
+  // Overall recommendations
+  const weakSubjects = marks.filter(mark => (mark.scored / mark.maxMarks) * 100 < 60);
+  if (weakSubjects.length > marks.length / 2) {
+    recommendations.push("Consider seeking academic support for overall improvement.");
+  }
+  
+  if (recommendations.length === 0) {
+    recommendations.push("Keep up the good work! Maintain your study habits.");
+  }
+  
+  return recommendations;
+}
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
 
@@ -98,6 +152,7 @@ export async function POST(req: Request) {
     let createdCount = 0;
     let updatedCount = 0;
     const problems: string[] = [];
+    const studentAnalyses: any[] = []; // Store AI analyses for each student
 
     for (const row of rows) {
       const regRaw = row[registerKey];
@@ -136,6 +191,9 @@ export async function POST(req: Request) {
         },
         create: studentData,
       });
+
+      // Store marks for this student to analyze later
+      const studentMarks: any[] = [];
 
       for (const subjectKey of subjectKeys) {
         const rawScore = row[subjectKey];
@@ -188,7 +246,28 @@ export async function POST(req: Request) {
           });
           createdCount++;
         }
+
+        // Store mark for AI analysis
+        studentMarks.push({
+          subject: subjectName,
+          scored,
+          maxMarks,
+          examType
+        });
       }
+
+      // Perform AI analysis for this student
+      const analysis = analyzeStudentPerformance(studentMarks);
+      studentAnalyses.push({
+        studentId: student.id,
+        registerNo: student.registerNo,
+        name: student.name,
+        email: student.email,
+        analysis
+      });
+
+      // Optionally, you could store this analysis in the database
+      // For now, we'll just collect it for the response
     }
 
     // Send notification to all subscribed students
@@ -202,6 +281,7 @@ export async function POST(req: Request) {
       createdCount,
       updatedCount,
       problems,
+      studentAnalyses // Include AI analyses in response
     });
   } catch (e) {
     console.error("Bulk upload marks error:", e);

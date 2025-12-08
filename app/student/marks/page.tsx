@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'nextnavigation';
 import { useState, useEffect } from 'react';
 import { NotificationSetup } from '@/app/marks/NotificationSetup';
 
@@ -12,6 +12,7 @@ export default function StudentMarks() {
   const [marks, setMarks] = useState<any[]>([]);
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [analysis, setAnalysis] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -30,6 +31,12 @@ export default function StudentMarks() {
       if (response.ok) {
         setStudent(data.student);
         setMarks(data.marks);
+        
+        // Perform simple AI analysis on the client side
+        if (data.marks && data.marks.length > 0) {
+          const analysisResult = analyzeStudentPerformance(data.marks);
+          setAnalysis(analysisResult);
+        }
       } else {
         console.error('Failed to fetch student marks:', data.error);
         // Fallback to simulated data if API fails
@@ -42,6 +49,60 @@ export default function StudentMarks() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Simple AI analysis function for demo purposes
+  const analyzeStudentPerformance = (marks: any[]) => {
+    if (marks.length === 0) return null;
+    
+    const totalSubjects = marks.length;
+    const passedSubjects = marks.filter(mark => 
+      mark.scored >= (mark.maxMarks * 0.4) // Assuming 40% is pass mark
+    ).length;
+    
+    const averagePercentage = marks.reduce((sum, mark) => 
+      sum + (mark.scored / mark.maxMarks) * 100, 0) / marks.length;
+    
+    let performanceLevel = "";
+    if (averagePercentage >= 90) performanceLevel = "Excellent";
+    else if (averagePercentage >= 75) performanceLevel = "Good";
+    else if (averagePercentage >= 60) performanceLevel = "Average";
+    else if (averagePercentage >= 40) performanceLevel = "Below Average";
+    else performanceLevel = "Needs Improvement";
+    
+    return {
+      totalSubjects,
+      passedSubjects,
+      averagePercentage: averagePercentage.toFixed(2),
+      performanceLevel,
+      recommendations: generateRecommendations(marks)
+    };
+  };
+
+  const generateRecommendations = (marks: any[]) => {
+    const recommendations = [];
+    
+    // Subject-wise recommendations
+    marks.forEach(mark => {
+      const percentage = (mark.scored / mark.maxMarks) * 100;
+      if (percentage < 40) {
+        recommendations.push(`Focus more on ${mark.subject}. Consider extra study hours or tutoring.`);
+      } else if (percentage < 60) {
+        recommendations.push(`Improve in ${mark.subject} with additional practice.`);
+      }
+    });
+    
+    // Overall recommendations
+    const weakSubjects = marks.filter(mark => (mark.scored / mark.maxMarks) * 100 < 60);
+    if (weakSubjects.length > marks.length / 2) {
+      recommendations.push("Consider seeking academic support for overall improvement.");
+    }
+    
+    if (recommendations.length === 0) {
+      recommendations.push("Keep up the good work! Maintain your study habits.");
+    }
+    
+    return recommendations;
   };
 
   const simulateData = () => {
@@ -64,6 +125,10 @@ export default function StudentMarks() {
     ];
     
     setMarks(marksData);
+    
+    // Simulate analysis
+    const analysisResult = analyzeStudentPerformance(marksData);
+    setAnalysis(analysisResult);
   };
 
   if (status === 'loading' || !mounted) {
@@ -134,6 +199,29 @@ export default function StudentMarks() {
               <InfoCard label="Register Number" value={student.registerNo} />
               <InfoCard label="Email" value={student.email} />
             </div>
+          </div>
+        )}
+
+        {/* AI Analysis Section */}
+        {analysis && (
+          <div style={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', borderRadius: '20px', padding: '32px', marginBottom: '32px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: '#111827' }}>🤖 AI Performance Analysis</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+              <SummaryCard title="Performance Level" value={analysis.performanceLevel} color="#8b5cf6" icon="📊" />
+              <SummaryCard title="Average Percentage" value={`${analysis.averagePercentage}%` || '0%'} color="#4facfe" icon="📈" />
+              <SummaryCard title="Passed Subjects" value={`${analysis.passedSubjects}/${analysis.totalSubjects}`} color="#10b981" icon="✅" />
+            </div>
+            
+            {analysis.recommendations && analysis.recommendations.length > 0 && (
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px', color: '#111827' }}>💡 Recommendations</h3>
+                <ul style={{ paddingLeft: '20px' }}>
+                  {analysis.recommendations.map((rec: string, index: number) => (
+                    <li key={index} style={{ marginBottom: '8px', color: '#374151' }}>{rec}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

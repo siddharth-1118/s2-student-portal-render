@@ -2,7 +2,7 @@
 
 import { useSession, signOut, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const ADMIN_EMAILS = ['saisiddharthvooka@gmail.com', 'kothaig2@srmist.edu.in'];
 
@@ -13,6 +13,21 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Check if user needs to complete their profile
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      // Check if this is a student and if their profile is completed
+      const isStudent = !ADMIN_EMAILS.includes(session.user.email || '');
+      const profileCompleted = (session.user as any).profileCompleted;
+      const registerNo = (session.user as any).registerNo;
+      
+      // If student and profile not completed, or has a temporary register number, redirect to complete profile
+      if (isStudent && (profileCompleted === false || (registerNo && registerNo.startsWith("TEMP_")))) {
+        router.push('/complete-profile');
+      }
+    }
+  }, [status, session, router]);
 
   if (status === 'loading') {
     return (
