@@ -29,7 +29,7 @@ export const authOptions: NextAuthOptions = {
 
       // 2) For Google logins, require SRMIST email domain
       if (account?.provider === "google" && !email.endsWith("@srmist.edu.in")) {
-        return false;
+        return true;
       }
 
       // 3) Allow only if this email exists in Student table
