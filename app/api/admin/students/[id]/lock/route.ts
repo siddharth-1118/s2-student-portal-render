@@ -3,16 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// Define the context type properly for Next.js 13+ App Router
-interface RouteContext {
-  params: {
-    id: string;
-  };
-}
-
 export async function PATCH(
   request: Request,
-  context: RouteContext
+  // FIX 1: Type the context correctly for newer Next.js versions (params is a Promise)
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,20 +14,20 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // FIX: Do NOT use parseInt(). The ID is now a string.
-    const studentId = context.params.id; 
+    // FIX 2: You MUST await 'context.params' before using the ID
+    const { id } = await context.params;
+    const studentId = id; // It is already a string, so no need for parseInt
 
     const body = await request.json();
     const { locked } = body;
 
+    // Note: If you don't have 'profileLocked' in your database schema yet,
+    // this update might fail silently or throw an error.
+    // Ensure you added that column if you intend to use it.
     const updatedStudent = await prisma.student.update({
-      where: { id: studentId }, // Now passing a string, which is correct
+      where: { id: studentId },
       data: {
-        // Since you might not have 'profileLocked' in your schema yet, 
-        // ensure this field exists or remove this logic if unused.
-        // If you don't have this column, this line will cause another error.
-        // Assuming you DO have it or are simulating it:
-        // profileLocked: locked 
+        // profileLocked: locked // Uncomment this only if you added the column to schema.prisma
       },
     });
 
