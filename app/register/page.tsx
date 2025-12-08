@@ -32,14 +32,13 @@ export default function RegisterPage() {
     }
 
     const res = await fetch("/api/student/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        email: session.user?.email, 
-        roll: roll.trim().toUpperCase(),
-        password: password || undefined
-      }),
-    });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    registerNo: roll.trim().toUpperCase(),
+  }),
+});
+
 
     const data = await res.json();
     

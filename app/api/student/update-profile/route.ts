@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// Valid students list - in a real app, this would be in a database
+// Valid students list
 const validStudents = [
   { roll: "RA2511026010868", name: "GURRAM VINAY JASWANTH" },
   { roll: "RA2511026010869", name: "VARNIKA JAIN" },
@@ -84,50 +84,80 @@ export async function POST(req: NextRequest) {
   try {
     const { email, registerNo, name } = await req.json();
 
-    if (!email || !registerNo || !name) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "Email, register number, and name are required" 
-      }, { status: 400 });
+    if (!email || !registerNo) {
+      return NextResponse.json({ success: false, error: "Missing fields" }, { status: 400 });
     }
 
-    // Validate register number against the valid students list
     const validStudent = validStudents.find(s => s.roll === registerNo.toUpperCase());
-    
     if (!validStudent) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "Register number not found in class list. Please check your register number." 
-      }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Invalid Register Number" }, { status: 400 });
     }
 
-    // Check if the name matches the register number (case insensitive)
-    if (validStudent.name.toLowerCase() !== name.toLowerCase()) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "Name does not match the register number. Please verify your name." 
-      }, { status: 400 });
+    const seedUser = await prisma.student.findUnique({ where: { registerNo: registerNo.toUpperCase() } });
+    const emailUser = await prisma.student.findUnique({ where: { email: email } });
+
+    // --- FIX: All "profileCompleted: true" lines have been REMOVED ---
+
+    // SCENARIO 1: Seed User Exists (Marks present), but no email
+    if (seedUser && !emailUser) {
+      const updated = await prisma.student.update({
+        where: { id: seedUser.id },
+        data: {
+          email: email,
+          name: validStudent.name
+        }
+      });
+      return NextResponse.json({ success: true, student: updated });
     }
 
-    // Update student record with the correct register number
-    const updatedStudent = await prisma.student.update({
-      where: { email: email },
+    // SCENARIO 2: Both Exist (Merge Conflict)
+    if (seedUser && emailUser && seedUser.id !== emailUser.id) {
+      await prisma.$transaction(async (tx) => {
+        // Move marks
+        await tx.mark.updateMany({
+          where: { studentId: seedUser.id },
+          data: { studentId: emailUser.id }
+        });
+        // Delete empty seed user
+        await tx.student.delete({ where: { id: seedUser.id } });
+        // Update real user
+        await tx.student.update({
+          where: { id: emailUser.id },
+          data: {
+            registerNo: registerNo.toUpperCase(),
+            name: validStudent.name
+          }
+        });
+      });
+      return NextResponse.json({ success: true, student: emailUser });
+    }
+
+    // SCENARIO 3: Only Email User Exists (No seed marks)
+    if (emailUser && !seedUser) {
+      const updated = await prisma.student.update({
+        where: { email: email },
+        data: {
+          registerNo: registerNo.toUpperCase(),
+          name: validStudent.name
+        }
+      });
+      return NextResponse.json({ success: true, student: updated });
+    }
+
+    // SCENARIO 4: New User
+    const newStudent = await prisma.student.create({
       data: {
+        email: email,
         registerNo: registerNo.toUpperCase(),
-        name: name,
-        profileCompleted: true
+        name: validStudent.name
       }
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      student: updatedStudent 
-    });
+    return NextResponse.json({ success: true, student: newStudent });
+
   } catch (error) {
-    console.error("Error updating student profile:", error);
-    return NextResponse.json({ 
-      success: false, 
-      error: "Failed to update profile. Please try again." 
-    }, { status: 500 });
+    console.error("Profile update error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ success: false, error: `Failed: ${errorMessage}` }, { status: 500 });
   }
 }

@@ -10,7 +10,6 @@ const ADMIN_EMAILS = [
 ];
 
 export const authOptions: NextAuthOptions = {
-  // NEXTAUTH_SECRET must be set in .env / Vercel, but we don't throw manually
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     GoogleProvider({
@@ -19,25 +18,44 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // 🔐 Control who is allowed to sign in
+    // Decide who is allowed to sign in
     async signIn({ user, account }) {
       const email = user.email;
       if (!email) return false;
 
-      // 1) Admins can always log in
+      // 1️⃣ Admins can always log in
       if (ADMIN_EMAILS.includes(email)) return true;
 
-      // 2) For Google logins, require SRMIST email domain
+      // 2️⃣ For Google logins, you can choose to restrict domain:
+      //    - Keep this line if students MUST use @srmist.edu.in
+      //    - Remove this block if students use normal Gmail / others
+      if (account?.provider === "google" && !email.endsWith("@srmist.edu.in")) {
+        return false;
+      }
 
-      // 3) Allow only if this email exists in Student table
-      const student = await prisma.student.findFirst({
-        where: { email },
-      });
+      // 3️⃣ Automatically create or update Student row on Google sign-in
+      const name = user.name || "Unknown Student";
 
-      return !!student;
+      try {
+        await prisma.student.upsert({
+          where: { email },
+          update: { name },
+          create: {
+            email,
+            name,
+            // temporary register number, you can update later via UI or DB
+            registerNo: `TEMP_${Date.now()}`,
+          },
+        });
+
+        return true;
+      } catch (err) {
+        console.error("Error upserting student on signIn:", err);
+        return false;
+      }
     },
 
-    // 🔄 Attach student info to the session
+    // Attach student info to the session so /marks/me can use it
     async session({ session }) {
       if (!session.user?.email) return session;
 
@@ -61,5 +79,4 @@ export const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
-
 export { handler as GET, handler as POST };
