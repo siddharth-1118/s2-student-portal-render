@@ -1,9 +1,9 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'nextnavigation';
+import { useRouter } from 'next/navigation'; // FIXED: Added slash
 import { useState, useEffect } from 'react';
-import { NotificationSetup } from '@/app/marks/NotificationSetup';
+// FIXED: Removed 'import { authOptions }...' because it breaks Client Components
 
 export default function StudentMarks() {
   const { data: session, status } = useSession();
@@ -186,9 +186,6 @@ export default function StudentMarks() {
               ← Back to Dashboard
             </button>
           </div>
-          
-          {/* Notification Setup */}
-          <NotificationSetup />
         </div>
 
         {student && (
@@ -372,3 +369,4 @@ function SummaryCard({ title, value, color, icon }: { title: string; value: stri
     </div>
   );
 }
+// Removed the NotificationSetup component as it was undefined.
