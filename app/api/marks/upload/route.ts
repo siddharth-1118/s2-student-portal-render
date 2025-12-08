@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth"; // FIXED: Import from lib/auth
 import { prisma } from "@/lib/prisma";
+// We import the notification function, but we'll use it safely
 import { sendMarksUpdateNotification } from "@/lib/notifications";
 
 const ADMIN_EMAILS = [
@@ -152,7 +153,7 @@ export async function POST(req: Request) {
     let createdCount = 0;
     let updatedCount = 0;
     const problems: string[] = [];
-    const studentAnalyses: any[] = []; // Store AI analyses for each student
+    const studentAnalyses: any[] = []; 
 
     for (const row of rows) {
       const regRaw = row[registerKey];
@@ -166,18 +167,15 @@ export async function POST(req: Request) {
       const nameRaw = nameKey ? row[nameKey] : null;
       const name = nameRaw ? String(nameRaw).trim() : "Unknown";
 
-      // First, check if student already exists in database with an email
       const existingStudent = await prisma.student.findUnique({
         where: { registerNo: reg },
       });
 
-      // Prepare student data for upsert
       let studentData: { registerNo: string; name: string; email?: string } = {
         registerNo: reg,
         name,
       };
 
-      // If student already exists, preserve their email
       if (existingStudent?.email) {
         studentData.email = existingStudent.email;
       }
@@ -186,13 +184,11 @@ export async function POST(req: Request) {
         where: { registerNo: reg },
         update: { 
           name,
-          // Preserve email if it exists
           ...(existingStudent?.email && { email: existingStudent.email })
         },
         create: studentData,
       });
 
-      // Store marks for this student to analyze later
       const studentMarks: any[] = [];
 
       for (const subjectKey of subjectKeys) {
@@ -247,7 +243,6 @@ export async function POST(req: Request) {
           createdCount++;
         }
 
-        // Store mark for AI analysis
         studentMarks.push({
           subject: subjectName,
           scored,
@@ -256,7 +251,6 @@ export async function POST(req: Request) {
         });
       }
 
-      // Perform AI analysis for this student
       const analysis = analyzeStudentPerformance(studentMarks);
       studentAnalyses.push({
         studentId: student.id,
@@ -265,15 +259,20 @@ export async function POST(req: Request) {
         email: student.email,
         analysis
       });
-
-      // Optionally, you could store this analysis in the database
-      // For now, we'll just collect it for the response
     }
 
-    // Send notification to all subscribed students
+    // FIX: Safely check keys before sending notifications to prevent build crash
     if (createdCount > 0 || updatedCount > 0) {
-      const message = `New marks have been uploaded. ${createdCount} new marks added, ${updatedCount} marks updated.`;
-      await sendMarksUpdateNotification(message);
+      if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+        try {
+          const message = `New marks have been uploaded. ${createdCount} new marks added, ${updatedCount} marks updated.`;
+          await sendMarksUpdateNotification(message);
+        } catch (notifError) {
+          console.warn("Failed to send notification:", notifError);
+        }
+      } else {
+        console.log("Skipping notification: No VAPID keys configured.");
+      }
     }
 
     return NextResponse.json({
@@ -281,7 +280,7 @@ export async function POST(req: Request) {
       createdCount,
       updatedCount,
       problems,
-      studentAnalyses // Include AI analyses in response
+      studentAnalyses 
     });
   } catch (e) {
     console.error("Bulk upload marks error:", e);
