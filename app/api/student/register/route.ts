@@ -75,6 +75,8 @@ const validStudents = [
   { roll: "RA2511026010939", name: "YALLAPU VIHAS" },
   { roll: "RA2511026010940", name: "AQIB SHAFEEQUE" },
   { roll: "RA2511026010603", name: "YESHVANTHKRITHIK" },
+  // Adding the missing student
+  { roll: "SV3824", name: "Student with email sv3824@srmist.edu.in" }
 ];
 
 export async function POST(req: NextRequest) {
