@@ -1,3 +1,5 @@
+// app/api/auth/[...nextauth]/route.ts
+
 import NextAuth, { type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
@@ -7,17 +9,12 @@ const ADMIN_EMAILS = [
   "kothaig2@srmist.edu.in",
 ];
 
-const secret = process.env.NEXTAUTH_SECRET;
-if (!secret) {
-  throw new Error("NEXTAUTH_SECRET environment variable is not set");
-}
-
 export const authOptions: NextAuthOptions = {
-  secret,
+  secret: process.env.NEXTAUTH_SECRET, // don't throw here
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
   ],
   callbacks: {
@@ -25,10 +22,10 @@ export const authOptions: NextAuthOptions = {
       const email = user.email;
       if (!email) return false;
 
-      // admins always allowed
+      // allow admins
       if (ADMIN_EMAILS.includes(email)) return true;
 
-      // must exist as Student
+      // allow only students present in DB
       const student = await prisma.student.findFirst({
         where: { email },
       });
@@ -55,4 +52,5 @@ export const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
+
 export { handler as GET, handler as POST };

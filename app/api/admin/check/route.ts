@@ -11,7 +11,6 @@ const ADMIN_EMAILS = [
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-
     const email = session?.user?.email || null;
     const isAdmin = !!email && ADMIN_EMAILS.includes(email);
 
