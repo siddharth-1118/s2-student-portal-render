@@ -28,12 +28,30 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Check if email is from srmist.edu.in domain
-        if (!credentials.email.endsWith("@srmist.edu.in")) {
+        // Check if user is an admin
+        const isAdmin = ADMIN_EMAILS.includes(credentials.email);
+        
+        // For non-admin users, restrict to srmist.edu.in domain
+        if (!isAdmin && !credentials.email.endsWith("@srmist.edu.in")) {
           throw new Error("Only SRMIST email addresses are allowed");
         }
 
-        // Find student by email using raw query to avoid type issues
+        // For admin users, allow any domain but validate against admin emails
+        if (isAdmin) {
+          // Simple password check for admin (in production, use proper authentication)
+          // For demo purposes, we'll use a simple check
+          if (credentials.password !== "admin123") { // This should be improved in production
+            return null;
+          }
+          
+          return {
+            id: "admin",
+            email: credentials.email,
+            name: credentials.email.includes("saisiddharthvooka") ? "Sai Siddharth" : "Admin User",
+          };
+        }
+
+        // For student users, find in database
         const students: any = await prisma.$queryRaw`SELECT * FROM "Student" WHERE "email" = ${credentials.email}`;
         const student = students[0];
 
