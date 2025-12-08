@@ -60,7 +60,7 @@ export async function GET() {
           id: topPerformerData[0].studentId,
         },
       });
-      topPerformerName = topStudent ? topStudent.name : "Unknown";
+      topPerformerName = topStudent?.name || "Unknown";
     }
 
     return NextResponse.json({
