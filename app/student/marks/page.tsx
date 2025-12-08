@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { NotificationSetup } from '@/app/marks/NotificationSetup';
 
 export default function StudentMarks() {
   const { data: session, status } = useSession();
@@ -67,7 +68,7 @@ export default function StudentMarks() {
 
   if (status === 'loading' || !mounted) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}>
         <div style={{ width: '60px', height: '60px', border: '6px solid rgba(255,255,255,0.3)', borderTop: '6px solid white', borderRadius: '50%' }}></div>
       </div>
     );
@@ -120,6 +121,9 @@ export default function StudentMarks() {
               ← Back to Dashboard
             </button>
           </div>
+          
+          {/* Notification Setup */}
+          <NotificationSetup />
         </div>
 
         {student && (

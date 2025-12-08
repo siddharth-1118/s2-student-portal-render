@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Papa from "papaparse";
+import { NotificationSetup } from "@/app/marks/NotificationSetup";
 
 type Row = Record<string, any>;
 
@@ -115,6 +116,9 @@ export default function MarksUploadPage() {
               </p>
             </div>
           </div>
+          
+          {/* Notification Setup for Admins */}
+          <NotificationSetup />
 
           <div style={{ marginBottom: '24px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>

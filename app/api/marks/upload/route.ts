@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { sendMarksUpdateNotification } from "@/lib/notifications";
 
 const ADMIN_EMAILS = [
   "saisiddharthvooka@gmail.com",
@@ -188,6 +189,12 @@ export async function POST(req: Request) {
           createdCount++;
         }
       }
+    }
+
+    // Send notification to all subscribed students
+    if (createdCount > 0 || updatedCount > 0) {
+      const message = `New marks have been uploaded. ${createdCount} new marks added, ${updatedCount} marks updated.`;
+      await sendMarksUpdateNotification(message);
     }
 
     return NextResponse.json({
