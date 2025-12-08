@@ -1,4 +1,3 @@
-// app/api/marks/upload/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -10,15 +9,14 @@ const ADMIN_EMAILS = [
 ];
 
 export async function POST(req: Request) {
-  // 1) Only allow admins
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user?.email || !ADMIN_EMAILS.includes(session.user.email)) {
     return NextResponse.json({ error: "Unauthorized (not admin)" }, { status: 401 });
   }
 
-  // 2) Read body and try to find the rows array in it
   const body = await req.json();
+
   let rows: Array<Record<string, any>> | undefined;
 
   if (Array.isArray(body)) {
@@ -47,7 +45,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // 3) Detect columns on first row
   const sample = rows[0];
 
   const lowerKeys = Object.keys(sample).reduce<Record<string, string>>(
@@ -81,7 +78,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // all other columns are treated as subjects (maths, physics, etc.)
   const subjectKeys = Object.keys(sample).filter(
     (k) => k !== registerKey && k !== nameKey,
   );
@@ -114,7 +110,6 @@ export async function POST(req: Request) {
       const nameRaw = nameKey ? row[nameKey] : null;
       const name = nameRaw ? String(nameRaw).trim() : "Unknown";
 
-      // 4) Upsert student by registerNo
       const student = await prisma.student.upsert({
         where: { registerNo: reg },
         update: { name },
@@ -124,7 +119,6 @@ export async function POST(req: Request) {
         },
       });
 
-      // 5) For each subject column create/update mark
       for (const subjectKey of subjectKeys) {
         const rawScore = row[subjectKey];
 
@@ -150,7 +144,6 @@ export async function POST(req: Request) {
             ? body.maxMarks
             : 100;
 
-        // check if mark already exists for this student/subject/examType
         const existing = await prisma.mark.findFirst({
           where: {
             studentId: student.id,
