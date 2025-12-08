@@ -5,16 +5,17 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"  // Changed from "sqlite"
+  provider = "postgresql" // Changed from "sqlite"
   url      = env("DATABASE_URL") // Uses the variable Vercel just created
 }
 
 model Student {
-  id         Int     @id @default(autoincrement())
-  registerNo String  @unique
-  name       String
-  email      String? @unique
-  marks      Mark[]
+  id                Int                @id @default(autoincrement())
+  registerNo        String             @unique
+  name              String
+  email             String?            @unique
+  marks             Mark[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Mark {
@@ -34,6 +35,7 @@ model TimetableEntry {
   subject String
   room    String?
 }
+
 // --- NextAuth Models (Required for Sign In) ---
 
 model Account {
@@ -79,4 +81,14 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId Int
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 }

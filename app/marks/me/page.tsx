@@ -2,19 +2,22 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { NotificationSetup } from "../NotificationSetup";
 
 export default async function MyMarksPage() {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user?.email) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-slate-600">Please sign in to view your marks.</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <p className="text-slate-600">
+          Please sign in with your SRM Google account to view your marks.
+        </p>
       </div>
     );
   }
 
-  // Find student using email (adjust if you link via registerNo instead)
+  // Find the student linked to this email
   const student = await prisma.student.findFirst({
     where: { email: session.user.email },
     include: { marks: true },
@@ -22,9 +25,9 @@ export default async function MyMarksPage() {
 
   if (!student) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <p className="text-slate-600">
-          No student record linked to this email.
+          No student record found for this email. Please contact your admin.
         </p>
       </div>
     );
@@ -34,14 +37,16 @@ export default async function MyMarksPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2">My Marks</h1>
-        <p className="text-slate-600 mb-6">
-          {student.name} • Reg No:{" "}
-          <span className="font-mono">{student.registerNo}</span>
-        </p>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <header>
+          <h1 className="text-3xl font-bold mb-1">My Marks</h1>
+          <p className="text-slate-600">
+            {student.name} • Reg No:{" "}
+            <span className="font-mono">{student.registerNo}</span>
+          </p>
+        </header>
 
-        <div className="rounded-2xl bg-white shadow p-4">
+        <section className="rounded-2xl bg-white shadow p-4">
           {marks.length === 0 ? (
             <p className="text-slate-500 text-sm">
               No marks uploaded yet. Please check again later.
@@ -61,7 +66,7 @@ export default async function MyMarksPage() {
                       Scored
                     </th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600">
-                      Max
+                      Max Marks
                     </th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-slate-600">
                       %
@@ -70,7 +75,11 @@ export default async function MyMarksPage() {
                 </thead>
                 <tbody>
                   {marks.map((m) => {
-                    const percent = (m.scored / m.maxMarks) * 100;
+                    const percent =
+                      m.maxMarks > 0
+                        ? (m.scored / m.maxMarks) * 100
+                        : 0;
+
                     return (
                       <tr key={m.id} className="border-t">
                         <td className="px-3 py-2">{m.subject}</td>
@@ -80,7 +89,9 @@ export default async function MyMarksPage() {
                         <td className="px-3 py-2 text-right font-semibold">
                           {m.scored}
                         </td>
-                        <td className="px-3 py-2 text-right">{m.maxMarks}</td>
+                        <td className="px-3 py-2 text-right">
+                          {m.maxMarks}
+                        </td>
                         <td className="px-3 py-2 text-right">
                           {percent.toFixed(1)}%
                         </td>
@@ -91,7 +102,10 @@ export default async function MyMarksPage() {
               </table>
             </div>
           )}
-        </div>
+
+          {/* Notifications setup box */}
+          <NotificationSetup />
+        </section>
       </div>
     </div>
   );
