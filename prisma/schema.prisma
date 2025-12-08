@@ -14,6 +14,13 @@ model Student {
   registerNo        String             @unique
   name              String
   email             String?            @unique
+  password          String?            // For email/password authentication
+  phone             String?            // Profile field
+  department        String?            // Profile field
+  year              Int?               // Profile field
+  section           String?            // Profile field
+  profileLocked     Boolean            @default(false) // Lock profile after admin approval
+  profileCompleted  Boolean            @default(false) // Track if profile is completed
   marks             Mark[]
   pushSubscriptions PushSubscription[]
 }

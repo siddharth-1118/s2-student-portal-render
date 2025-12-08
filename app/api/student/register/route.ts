@@ -80,7 +80,7 @@ const validStudents = [
 ];
 
 export async function POST(req: NextRequest) {
-  const { email, roll } = await req.json();
+  const { email, roll, password } = await req.json();
 
   // 1. Check if the provided roll number is in our allowed list
   const validStudent = validStudents.find(s => s.roll === roll);
@@ -100,20 +100,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Register number already linked to another account" });
   }
 
-  // 4. Update or Create the student
+  // 4. Prepare data for student creation/update
+  const studentData: any = {
+    registerNo: roll, // Use 'registerNo' here!
+    name: validStudent.name,
+    email
+  };
+
+  // Add password if provided (for email/password authentication)
+  if (password) {
+    // In production, hash the password with bcrypt
+    // For now, we'll store it directly (NOT recommended for production)
+    studentData.password = password;
+  }
+
+  // 5. Update or Create the student
   if (existing) {
     await prisma.student.update({
       where: { id: existing.id },
-      data: { email, name: validStudent.name },
+      data: studentData,
     });
   } else {
     // When creating, we must use the correct schema field names
     await prisma.student.create({
-      data: { 
-        registerNo: roll, // Use 'registerNo' here!
-        name: validStudent.name, 
-        email 
-      },
+      data: studentData,
     });
   }
 

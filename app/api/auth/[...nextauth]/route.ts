@@ -2,6 +2,7 @@
 
 import NextAuth, { type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 
 const ADMIN_EMAILS = [
@@ -16,16 +17,58 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
+        // Check if email is from srmist.edu.in domain
+        if (!credentials.email.endsWith("@srmist.edu.in")) {
+          throw new Error("Only SRMIST email addresses are allowed");
+        }
+
+        // Find student by email using raw query to avoid type issues
+        const students: any = await prisma.$queryRaw`SELECT * FROM "Student" WHERE "email" = ${credentials.email}`;
+        const student = students[0];
+
+        // If no student found or no password set, return null
+        if (!student || !student.password) {
+          return null;
+        }
+
+        // Simple password comparison (in production, use bcrypt)
+        if (credentials.password !== student.password) {
+          return null;
+        }
+
+        return {
+          id: student.id.toString(),
+          email: student.email,
+          name: student.name,
+        };
+      }
+    })
   ],
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       const email = user.email;
       if (!email) return false;
 
-      // allow admins
+      // Allow admins
       if (ADMIN_EMAILS.includes(email)) return true;
 
-      // allow only students present in DB
+      // Restrict to srmist.edu.in domain for Google login
+      if (account?.provider === "google" && !email.endsWith("@srmist.edu.in")) {
+        return false;
+      }
+
+      // Allow only students present in DB
       const student = await prisma.student.findFirst({
         where: { email },
       });
@@ -38,12 +81,20 @@ export const authOptions: NextAuthOptions = {
 
       const student = await prisma.student.findFirst({
         where: { email: session.user.email },
-        select: { id: true, registerNo: true, name: true },
+        select: { 
+          id: true, 
+          registerNo: true, 
+          name: true,
+          profileLocked: true,
+          profileCompleted: true
+        },
       });
 
       if (student) {
         (session.user as any).studentId = student.id;
         (session.user as any).registerNo = student.registerNo;
+        (session.user as any).profileLocked = student.profileLocked;
+        (session.user as any).profileCompleted = student.profileCompleted;
       }
 
       return session;
