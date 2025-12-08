@@ -87,7 +87,7 @@ export default function MarksUpload() {
 
     setUploading(true);
     try {
-      const response = await fetch('/api/marks/bulk-upload', {
+      const response = await fetch('/api/marks/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
