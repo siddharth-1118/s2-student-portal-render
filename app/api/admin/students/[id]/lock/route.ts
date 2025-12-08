@@ -1,5 +1,5 @@
 // app/api/admin/students/[id]/lock/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
@@ -9,7 +9,7 @@ const ADMIN_EMAILS = [
   "kothaig2@srmist.edu.in",
 ];
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -23,7 +23,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: "Invalid student ID" }, { status: 400 });
     }
 
-    const { locked } = await req.json();
+    const body = await request.json();
+    const { locked } = body;
 
     // Update student profile lock status
     const updatedStudent = await prisma.student.update({
