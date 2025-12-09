@@ -1,146 +1,314 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import NotificationButton from '@/components/NotificationButton';
 
-export default function SmartMarksUpload() {
-  const [file, setFile] = useState<File | null>(null);
-  const [previewData, setPreviewData] = useState<any[]>([]);
+// Types
+interface Student {
+  id: string;
+  registerNo: string;
+  name: string;
+}
+
+interface MarkEntry {
+  studentId: string;
+  registerNo: string;
+  name: string;
+  subject: string;
+  examType: string;
+  maxMarks: number;
+  scored: string;
+}
+
+export default function MarksUploadPage() {
+  const [activeTab, setActiveTab] = useState<'csv' | 'table'>('csv');
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  
+  // --- TABLE MODE STATE ---
+  const [entries, setEntries] = useState<MarkEntry[]>([]);
+  const [tableSubject, setTableSubject] = useState('Mathematics');
+  const [tableExam, setTableExam] = useState('Internal');
+  const [tableMax, setTableMax] = useState(100);
 
-  // 1. Handle File Selection & "AI" Parsing
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
-    setFile(selectedFile);
+  // --- CSV MODE STATE ---
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [csvExam, setCsvExam] = useState('Internal');
+  const [csvMax, setCsvMax] = useState(100);
+  const [fileName, setFileName] = useState('');
 
+  // 1. Fetch Students (For Table Mode)
+  useEffect(() => {
+    async function loadStudents() {
+      try {
+        const res = await fetch('/api/admin/students');
+        if (res.ok) {
+          const students: Student[] = await res.json();
+          const rows = students.map(s => ({
+            studentId: s.id,
+            registerNo: s.registerNo,
+            name: s.name || "Unknown",
+            subject: tableSubject,
+            examType: tableExam,
+            maxMarks: tableMax,
+            scored: '' 
+          }));
+          setEntries(rows);
+        }
+      } catch (e) {
+        console.error("Failed to load students");
+      }
+    }
+    loadStudents();
+  }, []);
+
+  // 2. Handle File Upload (CSV Mode)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (evt) => {
       const bstr = evt.target?.result;
       if (!bstr) return;
-
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
       
-      // FIX: Pass 'ws' (worksheet) here, not 'data'
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(ws);
       
-      console.log("Raw Data:", data); // Debugging
-      analyzeAndMapData(data);
+      // Auto-map data with Current CSV Inputs
+      const mapped = data.map((row: any) => {
+        const keys = Object.keys(row);
+        const regKey = keys.find(k => /reg|no|id/i.test(k)) || keys[0];
+        const subjectKey = keys.find(k => k !== regKey && !/name/i.test(k)) || "Marks";
+        
+        return {
+          registerNo: String(row[regKey]).trim(),
+          subject: subjectKey,
+          scored: row[subjectKey],
+          maxMarks: csvMax,    // Use the input value
+          examType: csvExam    // Use the input value
+        };
+      });
+      setPreviewData(mapped);
     };
-    reader.readAsBinaryString(selectedFile);
+    reader.readAsBinaryString(file);
   };
 
-  // 2. "AI" Analysis: Find correct columns automatically
-  const analyzeAndMapData = (rawData: any[]) => {
-    if (rawData.length === 0) return;
-
-    // Look at the first row to find keys
-    const headers = Object.keys(rawData[0]);
-    
-    // Find the column that looks like a Register Number (contains 'reg', 'no', 'id')
-    const regKey = headers.find(h => /reg|no|id/i.test(h)) || headers[0];
-    
-    // Assume other columns are Subjects (ignoring name/reg no)
-    const subjectKeys = headers.filter(h => h !== regKey && !/name|student/i.test(h));
-
-    // Reformat data for the preview table
-    const formatted = [];
-    for (const row of rawData) {
-      const registerNo = row[regKey];
-      for (const subject of subjectKeys) {
-        formatted.push({
-          registerNo: String(registerNo).trim(),
-          subject: subject,
-          scored: row[subject],
-          maxMarks: 100, // Default to 100
-          examType: "Internal" // Default
-        });
-      }
-    }
-    setPreviewData(formatted);
+  // 3. Update Table Global Settings
+  const applyTableSettings = () => {
+    setEntries(prev => prev.map(row => ({
+      ...row,
+      subject: tableSubject,
+      examType: tableExam,
+      maxMarks: tableMax
+    })));
   };
 
-  // 3. Upload to Server
+  // 4. Handle Cell Typing
+  const handleScoreChange = (index: number, val: string) => {
+    const updated = [...entries];
+    updated[index].scored = val;
+    setEntries(updated);
+  };
+
+  // 5. Unified Upload Function
   const handleUpload = async () => {
-    if (previewData.length === 0) return alert("No valid data found in file.");
-    
-    setLoading(true);
+    // If CSV mode, re-apply the latest Exam Type/Max Marks just in case user changed them after selecting file
+    let dataToUpload = [];
+
+    if (activeTab === 'csv') {
+      dataToUpload = previewData.map(d => ({ ...d, examType: csvExam, maxMarks: csvMax }));
+    } else {
+      dataToUpload = entries.filter(r => r.scored !== '');
+    }
+
+    if (dataToUpload.length === 0) return alert("No marks to upload.");
+
+    setUploading(true);
     try {
       const res = await fetch('/api/admin/marks/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marks: previewData })
+        body: JSON.stringify({ marks: dataToUpload })
       });
 
       if (res.ok) {
-        alert(`✅ Successfully uploaded ${previewData.length} marks!`);
+        alert("✅ Marks Uploaded Successfully!");
         setPreviewData([]);
-        setFile(null);
+        setFileName('');
+        setEntries(prev => prev.map(r => ({ ...r, scored: '' })));
       } else {
-        alert("❌ Failed to upload. Check server logs.");
+        alert("Failed to upload.");
       }
     } catch (error) {
-      console.error(error);
-      alert("Error uploading file.");
+      alert("Error uploading marks.");
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto min-h-screen bg-gray-50">
-      <h1 className="text-3xl font-bold mb-2 text-indigo-700">📂 Upload Marks File</h1>
-      <p className="text-gray-500 mb-8">Upload an Excel or CSV file. The AI will automatically detect Student IDs and Marks.</p>
+    <div className="p-8 max-w-6xl mx-auto min-h-screen bg-gray-50">
+      <h1 className="text-3xl font-bold text-indigo-700 mb-2">📤 Upload Marks</h1>
+      <p className="text-gray-500 mb-6">Upload student marks via CSV file or table entry</p>
 
-      {/* File Drop Zone */}
-      <div className="bg-white p-8 rounded-xl shadow-md border-2 border-dashed border-indigo-200 text-center">
-        <input 
-          type="file" 
-          accept=".csv, .xlsx, .xls"
-          onChange={handleFileChange}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-        />
-        <p className="mt-2 text-xs text-gray-400">Supported: .xlsx, .csv</p>
+      {/* --- TABS --- */}
+      <div className="flex gap-4 mb-8 border-b border-gray-300 pb-1">
+        <button 
+          onClick={() => setActiveTab('csv')}
+          className={`px-6 py-2 rounded-t-lg font-bold transition ${activeTab === 'csv' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+        >
+          CSV Upload
+        </button>
+        <button 
+          onClick={() => setActiveTab('table')}
+          className={`px-6 py-2 rounded-t-lg font-bold transition ${activeTab === 'table' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+        >
+          Table Entry
+        </button>
       </div>
 
-      {/* Preview Table */}
-      {previewData.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-xl font-bold mb-4">👀 AI Preview (Check before saving)</h2>
-          <div className="bg-white shadow rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-100 sticky top-0">
+      {/* --- NOTIFICATION TOGGLE --- */}
+      <div className="mb-8 p-4 bg-white border border-gray-300 rounded-lg flex justify-between items-center shadow-sm">
+        <p className="text-gray-700">Enable notifications to get updates when your marks are changed.</p>
+        <NotificationButton />
+      </div>
+
+      {/* ================= CSV MODE ================= */}
+      {activeTab === 'csv' && (
+        <div className="animate-fade-in space-y-6">
+          
+          {/* File Drop Zone */}
+          <div className="bg-white p-10 rounded-xl shadow-sm border-2 border-dashed border-indigo-300 text-center hover:bg-indigo-50 transition relative">
+            <input 
+              type="file" 
+              accept=".csv, .xlsx"
+              onChange={handleFileChange}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <div className="text-6xl mb-4">📁</div>
+            <p className="text-lg font-bold text-gray-700">{fileName || "Click to select a CSV file"}</p>
+            <p className="text-sm text-gray-400 mt-2">CSV should contain Register Number and subject columns</p>
+          </div>
+
+          {/* Inputs for CSV */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">🏷️ Exam type</label>
+                <input 
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" 
+                  value={csvExam} 
+                  onChange={e => setCsvExam(e.target.value)} 
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">🎯 Max marks</label>
+                <input 
+                  type="number" 
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" 
+                  value={csvMax} 
+                  onChange={e => setCsvMax(Number(e.target.value))} 
+                />
+             </div>
+          </div>
+
+          {/* Preview */}
+          {previewData.length > 0 && (
+            <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
+              <div className="p-4 bg-gray-50 border-b font-bold text-gray-700">Preview ({previewData.length} rows)</div>
+              <table className="w-full text-left">
+                <thead className="bg-white border-b">
+                  <tr>
+                    <th className="p-3 text-sm text-gray-500">Register No</th>
+                    <th className="p-3 text-sm text-gray-500">Subject</th>
+                    <th className="p-3 text-sm text-gray-500">Scored</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.slice(0, 5).map((row, i) => (
+                    <tr key={i} className="border-b hover:bg-gray-50">
+                      <td className="p-3 font-mono text-indigo-600">{row.registerNo}</td>
+                      <td className="p-3">{row.subject}</td>
+                      <td className="p-3 font-bold">{row.scored}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ================= TABLE MODE ================= */}
+      {activeTab === 'table' && (
+        <div className="animate-fade-in space-y-6">
+          <h2 className="text-2xl font-bold flex items-center gap-2">✏️ Enter Marks Manually</h2>
+
+          {/* Controls */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">🏷️ Exam type</label>
+              <input className="w-full border p-2 rounded outline-none focus:ring-2 focus:ring-indigo-500" value={tableExam} onChange={e => setTableExam(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">🎯 Max marks</label>
+              <input type="number" className="w-full border p-2 rounded outline-none focus:ring-2 focus:ring-indigo-500" value={tableMax} onChange={e => setTableMax(Number(e.target.value))} />
+            </div>
+            
+            <div className="flex flex-col">
+               <label className="block text-sm font-bold text-gray-700 mb-2">Subject Name</label>
+               <div className="flex gap-2">
+                 <input className="w-full border p-2 rounded outline-none focus:ring-2 focus:ring-indigo-500" value={tableSubject} onChange={e => setTableSubject(e.target.value)} />
+                 <button onClick={applyTableSettings} className="bg-green-600 text-white px-4 rounded font-bold hover:bg-green-700">+ Set</button>
+               </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white shadow rounded-lg overflow-x-auto border border-gray-200">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-gray-100 text-gray-700">
                 <tr>
-                  <th className="p-3 font-bold">Register No</th>
-                  <th className="p-3 font-bold">Subject</th>
-                  <th className="p-3 font-bold">Scored</th>
+                  <th className="p-4 border-b w-40">Reg No</th>
+                  <th className="p-4 border-b">Name</th>
+                  <th className="p-4 border-b w-48 bg-indigo-50 text-indigo-900 border-l-4 border-indigo-500">{tableSubject}</th>
                 </tr>
               </thead>
               <tbody>
-                {previewData.map((row, i) => (
-                  <tr key={i} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-mono text-blue-600">{row.registerNo}</td>
-                    <td className="p-3">{row.subject}</td>
-                    <td className="p-3 font-bold">{row.scored}</td>
+                {entries.map((row, i) => (
+                  <tr key={row.studentId} className="hover:bg-gray-50 border-b">
+                    <td className="p-4 font-mono font-bold text-gray-600">{row.registerNo}</td>
+                    <td className="p-4">{row.name}</td>
+                    <td className="p-0 relative h-14 bg-indigo-50/20">
+                      <input 
+                        type="number" 
+                        placeholder="-" 
+                        className="w-full h-full text-center font-bold text-indigo-700 bg-transparent focus:bg-indigo-100 outline-none text-xl" 
+                        value={row.scored} 
+                        onChange={e => handleScoreChange(i, e.target.value)} 
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          <div className="mt-6 flex justify-end">
-            <button 
-              onClick={handleUpload}
-              disabled={loading}
-              className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 shadow-lg disabled:opacity-50"
-            >
-              {loading ? "Uploading & Notifying..." : "✅ Confirm & Send to Students"}
-            </button>
-          </div>
         </div>
       )}
+
+      {/* --- SAVE BUTTON (Shared) --- */}
+      <div className="mt-8 sticky bottom-6">
+        <button 
+          onClick={handleUpload} 
+          disabled={uploading}
+          className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-xl shadow-lg hover:bg-indigo-700 disabled:opacity-50 transition transform active:scale-95"
+        >
+          {uploading ? "📤 Uploading..." : "📤 Upload Marks"}
+        </button>
+      </div>
     </div>
   );
 }
