@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // Fetch all students sorted by Register Number
     const students = await prisma.student.findMany({
       select: {
         id: true,
@@ -13,9 +14,6 @@ export async function GET() {
       },
       orderBy: { registerNo: 'asc' }
     });
-    
-    // Safety check: If no students, return empty array instead of crashing
-    if (!students) return NextResponse.json([]);
     
     return NextResponse.json(students);
   } catch (error) {
