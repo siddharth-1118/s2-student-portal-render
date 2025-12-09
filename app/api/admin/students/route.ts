@@ -19,23 +19,24 @@ export async function GET() {
     }
 
     // Fetch all students
-    const students = await prisma.student.findMany({
-      select: {
-        id: true,
-        name: true,
-        registerNo: true,
-        email: true,
-        phone: true,
-        department: true,
-        year: true,
-        section: true,
-        profileLocked: true,
-        profileCompleted: true
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
+    // Inside app/api/admin/students/route.ts
+
+const students = await prisma.student.findMany({
+  select: {
+    id: true,
+    name: true,
+    registerNo: true,
+    email: true,
+    department: true,
+    year: true,
+    section: true,
+    // profileLocked: true,  <-- DELETE THIS LINE
+    profileCompleted: true
+  },
+  orderBy: {
+    registerNo: 'asc'
+  }
+});
 
     return NextResponse.json(students);
   } catch (error) {
