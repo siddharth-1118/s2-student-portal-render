@@ -21,6 +21,7 @@ export function MarksAdminTable() {
   const [students, setStudents] = useState<StudentWithMarks[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -56,7 +57,7 @@ export function MarksAdminTable() {
   const saveMark = async (markId: number, scored: number) => {
     try {
       setSavingId(markId);
-      const res = await fetch("/api/marks/update", {
+      const res = await fetch("/api/marks/update-mark", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markId, scored }),
@@ -67,6 +68,36 @@ export function MarksAdminTable() {
       alert("Failed to update marks");
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const deleteMark = async (markId: number) => {
+    if (!confirm("Are you sure you want to delete this mark?")) {
+      return;
+    }
+
+    try {
+      setDeletingId(markId);
+      const res = await fetch("/api/marks/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markId }),
+      });
+
+      if (!res.ok) throw new Error("Failed to delete");
+
+      // Remove the mark from the UI
+      setStudents(prev => 
+        prev.map(student => ({
+          ...student,
+          marks: student.marks.filter(mark => mark.id !== markId)
+        }))
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Failed to delete mark");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -118,13 +149,20 @@ export function MarksAdminTable() {
                     />
                   </td>
                   <td className="px-3 py-2 text-right">{m.maxMarks}</td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-3 py-2 text-right flex gap-1">
                     <button
                       onClick={() => saveMark(m.id, m.scored)}
                       disabled={savingId === m.id}
                       className="rounded bg-blue-600 px-2 py-1 text-[10px] text-white disabled:opacity-50"
                     >
                       {savingId === m.id ? "Saving…" : "Save"}
+                    </button>
+                    <button
+                      onClick={() => deleteMark(m.id)}
+                      disabled={deletingId === m.id}
+                      className="rounded bg-red-600 px-2 py-1 text-[10px] text-white disabled:opacity-50"
+                    >
+                      {deletingId === m.id ? "Deleting…" : "Delete"}
                     </button>
                   </td>
                 </tr>

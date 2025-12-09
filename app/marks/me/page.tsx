@@ -46,7 +46,11 @@ export default async function MyMarksPage() {
     );
   }
 
-  const marks = student.marks;
+  // Calculate percentage for each mark
+  const marks = student.marks.map(mark => ({
+    ...mark,
+    percentage: mark.maxMarks > 0 ? parseFloat(((mark.scored / mark.maxMarks) * 100).toFixed(1)) : 0
+  }));
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -88,9 +92,6 @@ export default async function MyMarksPage() {
                 </thead>
                 <tbody>
                   {marks.map((m) => {
-                    const percent =
-                      m.maxMarks > 0 ? (m.scored / m.maxMarks) * 100 : 0;
-
                     return (
                       <tr key={m.id} className="border-t">
                         <td className="px-3 py-2">{m.subject}</td>
@@ -104,7 +105,7 @@ export default async function MyMarksPage() {
                           {m.maxMarks}
                         </td>
                         <td className="px-3 py-2 text-right">
-                          {percent.toFixed(1)}%
+                          {m.percentage}%
                         </td>
                       </tr>
                     );

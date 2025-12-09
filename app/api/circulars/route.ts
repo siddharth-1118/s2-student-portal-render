@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { sendCircularNotification } from "@/lib/notifications";
 
 // GET: Fetch all circulars
 export async function GET() {
@@ -36,6 +37,11 @@ export async function POST(req: Request) {
         content,
         authorEmail: session.user.email
       }
+    });
+
+    // Send notification to all subscribed students
+    sendCircularNotification(title, content).catch(error => {
+      console.error("Failed to send circular notifications:", error);
     });
 
     return NextResponse.json(newCircular);

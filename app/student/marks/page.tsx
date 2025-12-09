@@ -194,7 +194,7 @@ export default function StudentMarks() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
               <InfoCard label="Name" value={student.name} />
               <InfoCard label="Register Number" value={student.registerNo} />
-              <InfoCard label="Email" value={student.email} />
+              <InfoCard label="Email" value={student.email || 'Not provided'} />
             </div>
           </div>
         )}
@@ -369,4 +369,3 @@ function SummaryCard({ title, value, color, icon }: { title: string; value: stri
     </div>
   );
 }
-// Removed the NotificationSetup component as it was undefined.
