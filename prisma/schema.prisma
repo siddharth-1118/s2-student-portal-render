@@ -10,29 +10,30 @@ datasource db {
 }
 
 model Student {
-  id         Int      @id @default(autoincrement())
+  // FIX: ID is now a String (CUID) to match your frontend code
+  id         String   @id @default(cuid())
   name       String?
   email      String?  @unique
   registerNo String   @unique
-  password     String?
+  password   String?
 
   // Profile Fields
-  phone      String?
-  department String?
-  year       String?
-  section    String?
+  phone            String?
+  department       String?
+  year             String?
+  section          String?
   profileCompleted Boolean @default(false)
 
-  // Relations
+  // Relations (Note the types below must match String)
   marks             Mark[]
-  pushSubscriptions PushSubscription[] // This line fixes the "missing opposite relation" error
+  pushSubscriptions PushSubscription[]
 }
 
 model Mark {
   id        Int      @id @default(autoincrement())
   
-  // FIX: Changed studentId to Int to match Student.id
-  studentId Int   
+  // FIX: studentId must be String to match Student.id
+  studentId String   
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   
   subject   String
@@ -61,17 +62,17 @@ model Circular {
 // --- NextAuth Models ---
 
 model Account {
-  id                Int     @id @default(autoincrement())
-  userId            Int
+  id                String  @id @default(cuid())
+  userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?
-  access_token      String?
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String?
+  id_token          String? @db.Text
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -80,15 +81,15 @@ model Account {
 }
 
 model Session {
-  id           Int      @id @default(autoincrement())
+  id           String   @id @default(cuid())
   sessionToken String   @unique
-  userId       Int
+  userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model User {
-  id            Int       @id @default(autoincrement())
+  id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
   emailVerified DateTime?
@@ -102,14 +103,14 @@ model VerificationToken {
   token      String   @unique
   expires    DateTime
 
-  @@id([identifier, token])
+  @@unique([identifier, token])
 }
 
 model PushSubscription {
   id        Int      @id @default(autoincrement())
   
-  // FIX: Changed studentId to Int to match Student.id
-  studentId Int
+  // FIX: studentId must be String to match Student.id
+  studentId String
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   
   endpoint  String   @unique
