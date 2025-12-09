@@ -118,3 +118,22 @@ model PushSubscription {
   auth      String
   createdAt DateTime @default(now())
 }
+model StudentMark {
+  id             String   @id @default(cuid())
+  studentName    String
+  registerNumber String
+  subject        String
+  testName       String
+  marks          Float
+  studentEmail   String
+  createdAt      DateTime @default(now())
+}
+
+model Notification {
+  id           String   @id @default(cuid())
+  studentEmail String
+  title        String
+  message      String
+  read         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
