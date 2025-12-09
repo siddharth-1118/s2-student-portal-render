@@ -1,175 +1,226 @@
 'use client';
-import { useState } from 'react';
-import { useSession } from 'next-auth/react';
+
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-const ADMIN_EMAILS = ['saisiddharthvooka@gmail.com', 'kothaig2@srmist.edu.in'];
-export default function CircularsAdminPage() {
- const { data: session, status } = useSession();
- const router = useRouter();
- const [title, setTitle] = useState('');
- const [content, setContent] = useState('');
- const [message, setMessage] = useState<{type: string, text: string} | null>(null);
- const [loading, setLoading] = useState(false);
- if (status === 'loading') {
- return (
- <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
- <div style={{ width: '60px', height: '60px', border: '6px solid rgba(255,255,255,0.3)', borderTop: '6px solid white', borderRadius: '50%' }}></div>
- </div>
- );
- }
- if (!session || !ADMIN_EMAILS.includes(session.user?.email || '')) {
- router.push('/');
- return null;
- }
- const handleSubmit = async (e: React.FormEvent) => {
- e.preventDefault();
- if (!title.trim() || !content.trim()) {
-   setMessage({type: 'error', text: 'Please fill in all fields'});
-   return;
- }
- try {
-   setLoading(true);
-   setMessage(null);
-   const response = await fetch('/api/circulars', {
-     method: 'POST',
-     headers: {
-       'Content-Type': 'application/json',
-     },
-     body: JSON.stringify({ title, content })
-   });
-   const data = await response.json();
-   if (response.ok) {
-     setMessage({
-       type: 'success', 
-       text: 'Circular published successfully and saved to database!'
-     });
-     setTitle('');
-     setContent('');
-   } else {
-     setMessage({
-       type: 'error', 
-       text: data.error || 'Failed to publish circular'
-     });
-   }
- } catch (error) {
-   setMessage({
-     type: 'error', 
-     text: 'Error publishing circular. Please try again.'
-   });
- } finally {
-   setLoading(false);
- }
- };
- return (
- <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '40px 20px' }}>
- <div style={{ maxWidth: '800px', margin: '0 auto' }}>
- <div style={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', borderRadius: '20px', padding: '32px', marginBottom: '32px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
- <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', marginBottom: '24px' }}>
- <div>
- <h1 style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '8px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
- 📢 Manage Circulars
- </h1>
- <p style={{ fontSize: '14px', color: '#6b7280' }}>
- Create and manage announcements for students
- </p>
- </div>
- <button 
- onClick={() => router.push('/')} 
- style={{ 
- padding: '12px 24px', 
- background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
- color: 'white', 
- border: 'none', 
- borderRadius: '12px', 
- fontSize: '14px', 
- fontWeight: '600', 
- cursor: 'pointer' 
- }}
- >
- ← Back to Dashboard
- </button>
- </div>
- {message && (
- <div style={{ 
- padding: '16px',
- borderRadius: '8px',
- backgroundColor: message.type === 'error' ? '#fee2e2' : message.type === 'success' ? '#dcfce7' : '#fffbeb',
- border: `1px solid ${message.type === 'error' ? '#fecaca' : message.type === 'success' ? '#86efac' : '#fde68a'}`,
- color: message.type === 'error' ? '#991b1b' : message.type === 'success' ? '#166534' : '#854d0e',
- marginBottom: '24px'
- }}>
- {message.text}
- </div>
- )}
- <form onSubmit={handleSubmit}>
- <div style={{ marginBottom: '24px' }}>
- <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
- 📰 Title
- </label>
- <input
- type="text"
- value={title}
- onChange={(e) => setTitle(e.target.value)}
- placeholder="Enter circular title"
- disabled={loading}
- style={{ 
- width: '100%', 
- padding: '12px 16px', 
- border: '2px solid #e5e7eb', 
- borderRadius: '8px', 
- fontSize: '14px',
- outline: 'none',
- opacity: loading ? 0.6 : 1
- }}
- onFocus={(e) => e.target.style.borderColor = '#667eea'}
- onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
- />
- </div>
- <div style={{ marginBottom: '24px' }}>
- <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
- 📝 Content
- </label>
- <textarea
- value={content}
- onChange={(e) => setContent(e.target.value)}
- placeholder="Enter circular content"
- disabled={loading}
- rows={6}
- style={{ 
- width: '100%', 
- padding: '12px 16px', 
- border: '2px solid #e5e7eb', 
- borderRadius: '8px', 
- fontSize: '14px',
- outline: 'none',
- resize: 'vertical',
- opacity: loading ? 0.6 : 1
- }}
- onFocus={(e) => e.target.style.borderColor = '#667eea'}
- onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
- />
- </div>
- <button
- type="submit"
- disabled={loading}
- style={{ 
- width: '100%',
- padding: '14px', 
- background: loading ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
- color: 'white', 
- border: 'none', 
- borderRadius: '12px', 
- fontSize: '16px', 
- fontWeight: '600', 
- cursor: loading ? 'not-allowed' : 'pointer',
- boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
- }}
- >
- {loading ? '📤 Publishing...' : '📤 Publish Circular'}
- </button>
- </form>
- </div>
- </div>
- </div>
- );
+import { useSession } from 'next-auth/react';
+
+interface Circular {
+  id: number;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
+export default function ManageCirculars() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  
+  const [circulars, setCirculars] = useState<Circular[]>([]);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  
+  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  // 1. Fetch Data on Load
+  useEffect(() => {
+    fetchCirculars();
+  }, []);
+
+  const fetchCirculars = async () => {
+    try {
+      const res = await fetch('/api/circulars');
+      if (res.ok) {
+        const data = await res.json();
+        setCirculars(data);
+      }
+    } catch (error) {
+      console.error("Error fetching circulars:", error);
+    }
+  };
+
+  // 2. Handle Create or Update
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !content.trim()) return;
+
+    setLoading(true);
+    try {
+      const method = editingId ? 'PUT' : 'POST';
+      const body = editingId ? { id: editingId, title, content } : { title, content };
+
+      const res = await fetch('/api/circulars', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        setTitle('');
+        setContent('');
+        setEditingId(null);
+        fetchCirculars(); // Refresh list
+        alert(editingId ? "Circular Updated!" : "Circular Published!");
+      } else {
+        alert("Operation failed.");
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Handle Edit Click
+  const handleEdit = (c: Circular) => {
+    setEditingId(c.id);
+    setTitle(c.title);
+    setContent(c.content);
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to form
+  };
+
+  // 4. Handle Delete Click
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this announcement?")) return;
+
+    try {
+      const res = await fetch(`/api/circulars?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setCirculars(prev => prev.filter(c => c.id !== id));
+      } else {
+        alert("Failed to delete.");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingId(null);
+    setTitle('');
+    setContent('');
+  };
+
+  if (status === "loading") return <div className="p-8">Loading...</div>;
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6 md:p-12">
+      <div className="max-w-4xl mx-auto">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">📢 Manage Circulars</h1>
+            <p className="text-gray-500 mt-1">Create, edit, and remove student announcements.</p>
+          </div>
+          <button 
+            onClick={() => router.back()}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition shadow-sm"
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+
+        {/* Input Form Card */}
+        <div className="bg-white p-6 rounded-xl shadow-md mb-10 border border-gray-200">
+          <h2 className="text-xl font-bold mb-4 text-indigo-700">
+            {editingId ? "✏️ Edit Circular" : "📝 Create New Circular"}
+          </h2>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Exam Schedule Released"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                required
+              />
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Content</label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Enter the detailed announcement here..."
+                rows={4}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                required
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold text-white shadow-md transition transform hover:-translate-y-0.5 ${
+                  loading 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : editingId 
+                      ? 'bg-orange-500 hover:bg-orange-600' 
+                      : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
+              >
+                {loading ? 'Processing...' : editingId ? 'Update Circular' : 'Publish Circular'}
+              </button>
+              
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        {/* Circulars List */}
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">📜 Posted Announcements</h2>
+        
+        {circulars.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
+            <p className="text-gray-500 text-lg">No circulars posted yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {circulars.map((circular) => (
+              <div key={circular.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition duration-200">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">{circular.title}</h3>
+                    <p className="text-xs text-gray-500 mt-1 font-medium bg-gray-100 inline-block px-2 py-1 rounded">
+                      🕒 {new Date(circular.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(circular)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                      title="Edit"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(circular.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                      title="Delete"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{circular.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
 }

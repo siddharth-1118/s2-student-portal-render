@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth"; // FIXED: Import from lib/auth
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-// We import the notification function, but we'll use it safely
-import { sendMarksUpdateNotification } from "@/lib/notifications";
+import { sendMarksUpdateNotification } from "@/lib/notifications"; // Ensure this file exists
 
-// Force this route to be dynamic (not statically generated)
+// Force dynamic to prevent caching issues
 export const dynamic = 'force-dynamic';
 
 const ADMIN_EMAILS = [
@@ -13,283 +12,101 @@ const ADMIN_EMAILS = [
   "kothaig2@srmist.edu.in",
 ];
 
-// Simple AI analysis function for demo purposes
-function analyzeStudentPerformance(marks: any[]) {
-  if (marks.length === 0) return "No marks data available";
-  
-  const totalSubjects = marks.length;
-  const passedSubjects = marks.filter(mark => 
-    mark.scored >= (mark.maxMarks * 0.4) // Assuming 40% is pass mark
-  ).length;
-  
-  const averagePercentage = marks.reduce((sum, mark) => 
-    sum + (mark.scored / mark.maxMarks) * 100, 0) / marks.length;
-  
-  let performanceLevel = "";
-  if (averagePercentage >= 90) performanceLevel = "Excellent";
-  else if (averagePercentage >= 75) performanceLevel = "Good";
-  else if (averagePercentage >= 60) performanceLevel = "Average";
-  else if (averagePercentage >= 40) performanceLevel = "Below Average";
-  else performanceLevel = "Needs Improvement";
-  
-  return {
-    totalSubjects,
-    passedSubjects,
-    averagePercentage: averagePercentage.toFixed(2),
-    performanceLevel,
-    recommendations: generateRecommendations(marks)
-  };
-}
-
-function generateRecommendations(marks: any[]) {
-  const recommendations = [];
-  
-  // Subject-wise recommendations
-  marks.forEach(mark => {
-    const percentage = (mark.scored / mark.maxMarks) * 100;
-    if (percentage < 40) {
-      recommendations.push(`Focus more on ${mark.subject}. Consider extra study hours or tutoring.`);
-    } else if (percentage < 60) {
-      recommendations.push(`Improve in ${mark.subject} with additional practice.`);
-    }
-  });
-  
-  // Overall recommendations
-  const weakSubjects = marks.filter(mark => (mark.scored / mark.maxMarks) * 100 < 60);
-  if (weakSubjects.length > marks.length / 2) {
-    recommendations.push("Consider seeking academic support for overall improvement.");
-  }
-  
-  if (recommendations.length === 0) {
-    recommendations.push("Keep up the good work! Maintain your study habits.");
-  }
-  
-  return recommendations;
-}
-
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-
-  if (!session || !session.user?.email || !ADMIN_EMAILS.includes(session.user.email)) {
-    return NextResponse.json({ error: "Unauthorized (not admin)" }, { status: 401 });
-  }
-
-  const body = await req.json();
-
-  let rows: Array<Record<string, any>> | undefined;
-
-  if (Array.isArray(body)) {
-    rows = body;
-  } else {
-    for (const value of Object.values(body)) {
-      if (
-        Array.isArray(value) &&
-        value.length > 0 &&
-        typeof value[0] === "object" &&
-        value[0] !== null
-      ) {
-        rows = value as Array<Record<string, any>>;
-        break;
-      }
-    }
-  }
-
-  if (!rows || rows.length === 0) {
-    return NextResponse.json(
-      {
-        error: "No rows provided to upload",
-        receivedKeys: Object.keys(body || {}),
-      },
-      { status: 400 },
-    );
-  }
-
-  const sample = rows[0];
-
-  const lowerKeys = Object.keys(sample).reduce<Record<string, string>>(
-    (acc, key) => {
-      acc[key.toLowerCase().trim()] = key;
-      return acc;
-    },
-    {},
-  );
-
-  const registerKey =
-    lowerKeys["register number"] ||
-    lowerKeys["reg no"] ||
-    lowerKeys["regno"] ||
-    lowerKeys["register_no"] ||
-    lowerKeys["registernumber"];
-
-  const nameKey =
-    lowerKeys["student name"] ||
-    lowerKeys["name"] ||
-    lowerKeys["student"];
-
-  if (!registerKey) {
-    return NextResponse.json(
-      {
-        error:
-          "Could not detect 'register number' column. Make sure one column is named like 'register number' or 'reg no'.",
-        columns: Object.keys(sample),
-      },
-      { status: 400 },
-    );
-  }
-
-  const subjectKeys = Object.keys(sample).filter(
-    (k) => k !== registerKey && k !== nameKey,
-  );
-
-  if (subjectKeys.length === 0) {
-    return NextResponse.json(
-      {
-        error:
-          "No subject columns detected. There should be at least one column with marks (e.g. 'maths').",
-        columns: Object.keys(sample),
-      },
-      { status: 400 },
-    );
-  }
-
   try {
+    // 1. Security Check
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.email || !ADMIN_EMAILS.includes(session.user.email)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { marks } = body; // Expecting { marks: [...] } from the Gradebook frontend
+
+    if (!Array.isArray(marks) || marks.length === 0) {
+      return NextResponse.json({ error: "No marks data provided" }, { status: 400 });
+    }
+
+    console.log(`📝 Processing ${marks.length} mark entries...`);
+
     let createdCount = 0;
     let updatedCount = 0;
-    const problems: string[] = [];
-    const studentAnalyses: any[] = []; 
 
-    for (const row of rows) {
-      const regRaw = row[registerKey];
-      const reg = regRaw ? String(regRaw).trim() : "";
+    // 2. Process Each Row
+    for (const entry of marks) {
+      // Validate basic data
+      if (!entry.registerNo || !entry.subject || !entry.scored) continue;
 
-      if (!reg) {
-        problems.push("Row without register number, skipping.");
+      // Find the student (using Register Number is safest)
+      const student = await prisma.student.findUnique({
+        where: { registerNo: entry.registerNo }
+      });
+
+      if (!student) {
+        console.warn(`Skipping unknown student: ${entry.registerNo}`);
         continue;
       }
 
-      const nameRaw = nameKey ? row[nameKey] : null;
-      const name = nameRaw ? String(nameRaw).trim() : "Unknown";
+      // Prepare data types
+      const scored = parseFloat(entry.scored);
+      const maxMarks = parseFloat(entry.maxMarks) || 100;
+      const subject = entry.subject.trim();
+      const examType = entry.examType?.trim() || "Internal";
 
-      const existingStudent = await prisma.student.findUnique({
-        where: { registerNo: reg },
-      });
-
-      let studentData: { registerNo: string; name: string; email?: string } = {
-        registerNo: reg,
-        name,
-      };
-
-      if (existingStudent?.email) {
-        studentData.email = existingStudent.email;
-      }
-
-      const student = await prisma.student.upsert({
-        where: { registerNo: reg },
-        update: { 
-          name,
-          ...(existingStudent?.email && { email: existingStudent.email })
-        },
-        create: studentData,
-      });
-
-      const studentMarks: any[] = [];
-
-      for (const subjectKey of subjectKeys) {
-        const rawScore = row[subjectKey];
-
-        if (
-          rawScore === undefined ||
-          rawScore === null ||
-          rawScore === "" ||
-          Number.isNaN(Number(rawScore))
-        ) {
-          continue;
+      // Check if mark already exists (to update instead of create duplicates)
+      const existingMark = await prisma.mark.findFirst({
+        where: {
+          studentId: student.id,
+          subject: subject,
+          examType: examType
         }
+      });
 
-        const scored = Number(rawScore);
-        const subjectName = subjectKey.toString().trim();
-
-        const examType =
-          typeof body.examType === "string" && body.examType.trim() !== ""
-            ? body.examType
-            : "Internal";
-
-        const maxMarks =
-          typeof body.maxMarks === "number" && !Number.isNaN(body.maxMarks)
-            ? body.maxMarks
-            : 100;
-
-        const existing = await prisma.mark.findFirst({
-          where: {
+      if (existingMark) {
+        await prisma.mark.update({
+          where: { id: existingMark.id },
+          data: { scored, maxMarks }
+        });
+        updatedCount++;
+      } else {
+        await prisma.mark.create({
+          data: {
             studentId: student.id,
-            subject: subjectName,
+            subject,
             examType,
-          },
+            scored,
+            maxMarks
+          }
         });
-
-        if (existing) {
-          await prisma.mark.update({
-            where: { id: existing.id },
-            data: { scored, maxMarks },
-          });
-          updatedCount++;
-        } else {
-          await prisma.mark.create({
-            data: {
-              studentId: student.id,
-              subject: subjectName,
-              examType,
-              maxMarks,
-              scored,
-            },
-          });
-          createdCount++;
-        }
-
-        studentMarks.push({
-          subject: subjectName,
-          scored,
-          maxMarks,
-          examType
-        });
+        createdCount++;
       }
-
-      const analysis = analyzeStudentPerformance(studentMarks);
-      studentAnalyses.push({
-        studentId: student.id,
-        registerNo: student.registerNo,
-        name: student.name,
-        email: student.email,
-        analysis
-      });
     }
 
-    // FIX: Safely check keys before sending notifications to prevent build crash
+    // 3. Send Notifications (Only if we actually changed data)
     if (createdCount > 0 || updatedCount > 0) {
+      // Safely check for VAPID keys before trying to send
       if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
         try {
-          const message = `New marks have been uploaded. ${createdCount} new marks added, ${updatedCount} marks updated.`;
+          const message = `📢 New Marks Alert: ${createdCount} added, ${updatedCount} updated. Check your portal!`;
           await sendMarksUpdateNotification(message);
+          console.log("✅ Notifications sent successfully.");
         } catch (notifError) {
-          console.warn("Failed to send notification:", notifError);
+          console.error("⚠️ Failed to send notifications:", notifError);
+          // We don't fail the request here, just log the error
         }
       } else {
-        console.log("Skipping notification: No VAPID keys configured.");
+        console.log("ℹ️ Skipping notifications (VAPID keys missing).");
       }
     }
 
     return NextResponse.json({
-      ok: true,
-      createdCount,
-      updatedCount,
-      problems,
-      studentAnalyses 
+      success: true,
+      message: `Processed ${marks.length} rows. Added: ${createdCount}, Updated: ${updatedCount}`,
+      stats: { createdCount, updatedCount }
     });
-  } catch (e) {
-    console.error("Bulk upload marks error:", e);
-    return NextResponse.json(
-      { error: "Failed to upload marks (server error)" },
-      { status: 500 },
-    );
+
+  } catch (error) {
+    console.error("❌ Upload error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
