@@ -1,15 +1,21 @@
 'use client';
 import { useState } from 'react';
 
-const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+// Get key from env
+const RAW_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
 export default function NotificationButton() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Helper: Convert Base64 key to Uint8Array (required by browser)
   function urlBase64ToUint8Array(base64String: string) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    // FIX: Remove any accidental quotes or whitespace
+    const cleanKey = base64String.replace(/['"]+/g, '').trim();
+    
+    const padding = '='.repeat((4 - cleanKey.length % 4) % 4);
+    const base64 = (cleanKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+    
     const rawData = window.atob(base64);
     const outputArray = new Uint8Array(rawData.length);
     for (let i = 0; i < rawData.length; ++i) {
@@ -19,26 +25,24 @@ export default function NotificationButton() {
   }
 
   async function subscribe() {
-    if (!PUBLIC_KEY) return alert("System Error: VAPID Key missing in Frontend");
+    if (!RAW_PUBLIC_KEY) return alert("System Error: VAPID Key missing in Frontend");
     setLoading(true);
 
     try {
-      // 1. Check Service Worker
       if (!('serviceWorker' in navigator)) {
         throw new Error("Browser does not support Service Workers");
       }
 
-      // 2. Register Service Worker
+      // 1. Register Service Worker
       const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log("Service Worker Registered:", registration);
 
-      // 3. Subscribe to Push Manager
+      // 2. Subscribe using the cleaned key
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(PUBLIC_KEY)
+        applicationServerKey: urlBase64ToUint8Array(RAW_PUBLIC_KEY)
       });
 
-      // 4. Save to Database
+      // 3. Save to Database
       const res = await fetch('/api/notifications/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -52,7 +56,6 @@ export default function NotificationButton() {
 
     } catch (error: any) {
       console.error("Subscription failed:", error);
-      // SHOW THE REAL ERROR TO THE USER
       alert(`Error: ${error.message}`);
     } finally {
       setLoading(false);
