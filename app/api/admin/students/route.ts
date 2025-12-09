@@ -1,46 +1,21 @@
-// app/api/admin/students/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const ADMIN_EMAILS = [
-  "saisiddharthvooka@gmail.com",
-  "kothaig2@srmist.edu.in",
-];
+// Force dynamic so it always fetches the latest list
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    
-    // Check if user is admin
-    if (!session || !session.user?.email || !ADMIN_EMAILS.includes(session.user.email)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Fetch all students
-    // Inside app/api/admin/students/route.ts
-
-const students = await prisma.student.findMany({
-  select: {
-    id: true,
-    name: true,
-    registerNo: true,
-    email: true,
-    department: true,
-    year: true,
-    section: true,
-    // profileLocked: true,  // REMOVED: This field was removed from the database
-    profileCompleted: true
-  },
-  orderBy: {
-    registerNo: 'asc'
-  }
-});
-
+    const students = await prisma.student.findMany({
+      select: {
+        id: true,
+        registerNo: true,
+        name: true
+      },
+      orderBy: { registerNo: 'asc' }
+    });
     return NextResponse.json(students);
   } catch (error) {
-    console.error("Error fetching students:", error);
     return NextResponse.json({ error: "Failed to fetch students" }, { status: 500 });
   }
 }
