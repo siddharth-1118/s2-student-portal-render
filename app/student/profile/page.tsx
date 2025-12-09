@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import NotificationButton from '@/components/NotificationButton'; // Import exists
 
 export default function StudentProfile() {
   const { data: session, status } = useSession();
@@ -78,7 +79,6 @@ export default function StudentProfile() {
       
       if (response.ok) {
         setMessage('Profile saved successfully!');
-        // Refresh session to update profile status
         window.location.reload();
       } else {
         setMessage(data.error || 'Failed to save profile');
@@ -104,9 +104,7 @@ export default function StudentProfile() {
     return null;
   }
 
-  // Check if profile is locked
-  const isProfileLocked = false;  // Profile lock functionality was removed
-  const isProfileCompleted = (session.user as any).profileCompleted;
+  const isProfileLocked = false; 
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '40px 20px' }}>
@@ -168,14 +166,7 @@ export default function StudentProfile() {
                     onChange={handleChange}
                     disabled={isProfileLocked}
                     required
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '1px solid #d1d5db', 
-                      fontSize: '16px',
-                      backgroundColor: isProfileLocked ? '#f3f4f6' : 'white'
-                    }}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
                   />
                 </div>
                 
@@ -188,14 +179,7 @@ export default function StudentProfile() {
                     onChange={handleChange}
                     disabled={isProfileLocked}
                     required
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '1px solid #d1d5db', 
-                      fontSize: '16px',
-                      backgroundColor: isProfileLocked ? '#f3f4f6' : 'white'
-                    }}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
                   />
                 </div>
                 
@@ -205,17 +189,9 @@ export default function StudentProfile() {
                     type="email"
                     name="email"
                     value={profile.email}
-                    onChange={handleChange}
                     disabled={true}
                     required
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '1px solid #d1d5db', 
-                      fontSize: '16px',
-                      backgroundColor: '#f3f4f6'
-                    }}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: '#f3f4f6' }}
                   />
                 </div>
                 
@@ -228,14 +204,7 @@ export default function StudentProfile() {
                     onChange={handleChange}
                     disabled={isProfileLocked}
                     required
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '1px solid #d1d5db', 
-                      fontSize: '16px',
-                      backgroundColor: isProfileLocked ? '#f3f4f6' : 'white'
-                    }}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
                   />
                 </div>
                 
@@ -247,14 +216,7 @@ export default function StudentProfile() {
                     onChange={handleChange}
                     disabled={isProfileLocked}
                     required
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '1px solid #d1d5db', 
-                      fontSize: '16px',
-                      backgroundColor: isProfileLocked ? '#f3f4f6' : 'white'
-                    }}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
                   >
                     <option value="">Select Department</option>
                     <option value="CSE">Computer Science & Engineering</option>
@@ -274,14 +236,7 @@ export default function StudentProfile() {
                     onChange={handleChange}
                     disabled={isProfileLocked}
                     required
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '1px solid #d1d5db', 
-                      fontSize: '16px',
-                      backgroundColor: isProfileLocked ? '#f3f4f6' : 'white'
-                    }}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
                   >
                     <option value="">Select Year</option>
                     <option value="1">1st Year</option>
@@ -300,14 +255,7 @@ export default function StudentProfile() {
                     onChange={handleChange}
                     disabled={isProfileLocked}
                     required
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      border: '1px solid #d1d5db', 
-                      fontSize: '16px',
-                      backgroundColor: isProfileLocked ? '#f3f4f6' : 'white'
-                    }}
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
                   />
                 </div>
               </div>
@@ -316,16 +264,7 @@ export default function StudentProfile() {
                 <button
                   type="button"
                   onClick={() => router.push('/')}
-                  style={{ 
-                    padding: '12px 24px', 
-                    background: '#9ca3af', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '12px', 
-                    fontSize: '14px', 
-                    fontWeight: '600', 
-                    cursor: 'pointer' 
-                  }}
+                  style={{ padding: '12px 24px', background: '#9ca3af', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
@@ -349,6 +288,10 @@ export default function StudentProfile() {
               </div>
             </form>
           )}
+
+          {/* ADDED NOTIFICATION BUTTON HERE */}
+          <NotificationButton />
+          
         </div>
       </div>
     </div>
