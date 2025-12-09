@@ -1,82 +1,8 @@
 // app/api/auth/[...nextauth]/route.ts
 
-import NextAuth, { type NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import { prisma } from "@/lib/prisma";
-
-const ADMIN_EMAILS = [
-  "saisiddharthvooka@gmail.com",
-  "kothaig2@srmist.edu.in",
-];
-
-export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-    }),
-  ],
-  callbacks: {
-    // Decide who is allowed to sign in
-    async signIn({ user, account }) {
-      const email = user.email;
-      if (!email) return false;
-
-      // 1️⃣ Admins can always log in
-      if (ADMIN_EMAILS.includes(email)) return true;
-
-      // 2️⃣ For Google logins, you can choose to restrict domain:
-      //    - Keep this line if students MUST use @srmist.edu.in
-      //    - Remove this block if students use normal Gmail / others
-      if (account?.provider === "google" && !email.endsWith("@srmist.edu.in")) {
-        return false;
-      }
-
-      // 3️⃣ Automatically create or update Student row on Google sign-in
-      const name = user.name || "Unknown Student";
-
-      try {
-        await prisma.student.upsert({
-          where: { email },
-          update: { name },
-          create: {
-            email,
-            name,
-            // temporary register number, you can update later via UI or DB
-            registerNo: `TEMP_${Date.now()}`,
-          },
-        });
-
-        return true;
-      } catch (err) {
-        console.error("Error upserting student on signIn:", err);
-        return false;
-      }
-    },
-
-    // Attach student info to the session so /marks/me can use it
-    async session({ session }) {
-      if (!session.user?.email) return session;
-
-      const student = await prisma.student.findFirst({
-        where: { email: session.user.email },
-        select: {
-          id: true,
-          registerNo: true,
-          name: true,
-        },
-      });
-
-      if (student) {
-        (session.user as any).studentId = student.id;
-        (session.user as any).registerNo = student.registerNo;
-      }
-
-      return session;
-    },
-  },
-};
+import { authOptions } from "@/lib/auth";
+import NextAuth from "next-auth";
 
 const handler = NextAuth(authOptions);
+
 export { handler as GET, handler as POST };

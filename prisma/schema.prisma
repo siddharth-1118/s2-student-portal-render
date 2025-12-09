@@ -5,12 +5,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model Student {
-  id         String   @id @default(cuid())
+  id         Int      @id @default(autoincrement())
   name       String?
   email      String?  @unique
   registerNo String   @unique
@@ -31,8 +31,8 @@ model Student {
 model Mark {
   id        Int      @id @default(autoincrement())
   
-  // FIX: Changed studentId to String to match Student.id
-  studentId String   
+  // FIX: Changed studentId to Int to match Student.id
+  studentId Int   
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   
   subject   String
@@ -61,17 +61,17 @@ model Circular {
 // --- NextAuth Models ---
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
+  id                Int     @id @default(autoincrement())
+  userId            Int
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -80,15 +80,15 @@ model Account {
 }
 
 model Session {
-  id           String   @id @default(cuid())
+  id           Int      @id @default(autoincrement())
   sessionToken String   @unique
-  userId       String
+  userId       Int
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            Int       @id @default(autoincrement())
   name          String?
   email         String?   @unique
   emailVerified DateTime?
@@ -102,14 +102,14 @@ model VerificationToken {
   token      String   @unique
   expires    DateTime
 
-  @@unique([identifier, token])
+  @@id([identifier, token])
 }
 
 model PushSubscription {
   id        Int      @id @default(autoincrement())
   
-  // FIX: Changed studentId to String to match Student.id
-  studentId String
+  // FIX: Changed studentId to Int to match Student.id
+  studentId Int
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   
   endpoint  String   @unique

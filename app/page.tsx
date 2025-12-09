@@ -19,13 +19,15 @@ export default function Home() {
     if (status === 'authenticated' && session?.user) {
       // Check if this is a student and if their profile is completed
       const isStudent = !ADMIN_EMAILS.includes(session.user.email || '');
-      const profileCompleted = (session.user as any).profileCompleted;
-      const registerNo = (session.user as any).registerNo;
+      // Since profile fields were removed from DB, we'll skip profile completion check
+      // const profileCompleted = (session.user as any).profileCompleted;
+      // const registerNo = (session.user as any).registerNo;
       
       // If student and profile not completed, or has a temporary register number, redirect to complete profile
-      if (isStudent && (profileCompleted === false || (registerNo && registerNo.startsWith("TEMP_")))) {
+      // Temporarily disabled due to missing DB fields
+      /*if (isStudent && (profileCompleted === false || (registerNo && registerNo.startsWith("TEMP_")))) {
         router.push('/complete-profile');
-      }
+      }*/
     }
   }, [status, session, router]);
 

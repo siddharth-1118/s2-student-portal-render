@@ -21,6 +21,12 @@ export function NotificationSetup() {
 
       const res = await fetch("/api/notifications/public-key");
       const { publicKey } = await res.json();
+      
+      // Check if publicKey is valid
+      if (!publicKey) {
+        console.error("Public key is missing");
+        return;
+      }
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
