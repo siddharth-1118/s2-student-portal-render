@@ -1,14 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
-// This uses the key from your .env file
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
 export default function NotificationButton() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Helper to convert key
   function urlBase64ToUint8Array(base64String: string) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -21,31 +19,41 @@ export default function NotificationButton() {
   }
 
   async function subscribe() {
-    if (!PUBLIC_KEY) return alert("System Error: VAPID Key missing");
+    if (!PUBLIC_KEY) return alert("System Error: VAPID Key missing in Frontend");
     setLoading(true);
 
     try {
-      // 1. Register Service Worker
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      // 1. Check Service Worker
+      if (!('serviceWorker' in navigator)) {
+        throw new Error("Browser does not support Service Workers");
+      }
 
-      // 2. Subscribe to Chrome/Firefox Push Server
+      // 2. Register Service Worker
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      console.log("Service Worker Registered:", registration);
+
+      // 3. Subscribe to Push Manager
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(PUBLIC_KEY)
       });
 
-      // 3. Send Subscription to Our Backend
-      await fetch('/api/notifications/subscribe', {
+      // 4. Save to Database
+      const res = await fetch('/api/notifications/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(subscription)
       });
 
+      if (!res.ok) throw new Error("Failed to save to database");
+
       setIsSubscribed(true);
-      alert("✅ You will now receive notifications!");
-    } catch (error) {
-      console.error(error);
-      alert("Please check your browser settings and Allow Notifications.");
+      alert("✅ Notifications Enabled Successfully!");
+
+    } catch (error: any) {
+      console.error("Subscription failed:", error);
+      // SHOW THE REAL ERROR TO THE USER
+      alert(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
