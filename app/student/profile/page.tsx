@@ -105,7 +105,7 @@ export default function StudentProfile() {
   }
 
   // Check if profile is locked
-  const isProfileLocked = (session.user as any).profileLocked;
+  const isProfileLocked = false;  // Profile lock functionality was removed
   const isProfileCompleted = (session.user as any).profileCompleted;
 
   return (
@@ -137,19 +137,6 @@ export default function StudentProfile() {
               ← Back to Dashboard
             </button>
           </div>
-
-          {isProfileLocked && (
-            <div style={{ 
-              padding: '16px', 
-              borderRadius: '8px', 
-              backgroundColor: '#fffbeb', 
-              border: '1px solid #fde68a', 
-              color: '#854d0e', 
-              marginBottom: '24px' 
-            }}>
-              ⚠️ Your profile has been locked by an administrator. You cannot make changes. Contact admin for modifications.
-            </div>
-          )}
 
           {message && (
             <div style={{ 

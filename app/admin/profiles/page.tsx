@@ -40,6 +40,9 @@ export default function AdminProfiles() {
   };
 
   const toggleProfileLock = async (studentId: number, currentStatus: boolean) => {
+    // Profile lock functionality was removed from the database
+    console.log("Profile lock functionality removed");
+    /*
     try {
       const response = await fetch(`/api/admin/students/${studentId}/lock`, {
         method: 'PUT',
@@ -55,7 +58,7 @@ export default function AdminProfiles() {
         // Update the student in the local state
         setStudents(prev => prev.map(student => 
           student.id === studentId 
-            ? { ...student, profileLocked: !currentStatus } 
+            ? student
             : student
         ));
       } else {
@@ -65,6 +68,7 @@ export default function AdminProfiles() {
       console.error('Error updating profile lock status:', error);
       alert('Error updating profile lock status');
     }
+    */
   };
 
   const filteredStudents = students.filter(student => 
@@ -190,18 +194,18 @@ export default function AdminProfiles() {
                             borderRadius: '20px', 
                             fontSize: '12px', 
                             fontWeight: '600',
-                            backgroundColor: student.profileLocked ? '#fed7d7' : (student.profileCompleted ? '#c6f6d5' : '#fef3c7'),
-                            color: student.profileLocked ? '#c53030' : (student.profileCompleted ? '#22543d' : '#92400e')
+                            backgroundColor: student.profileCompleted ? '#c6f6d5' : '#fef3c7',
+                            color: student.profileCompleted ? '#22543d' : '#92400e'
                           }}>
-                            {student.profileLocked ? 'LOCKED' : (student.profileCompleted ? 'COMPLETED' : 'INCOMPLETE')}
+                            {student.profileCompleted ? 'COMPLETED' : 'INCOMPLETE'}
                           </span>
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>
                           <button
-                            onClick={() => toggleProfileLock(student.id, student.profileLocked)}
+                            onClick={() => console.log("Profile lock functionality removed")}
                             style={{ 
                               padding: '6px 12px', 
-                              background: student.profileLocked ? '#48bb78' : '#e53e3e', 
+                              background: '#e53e3e', 
                               color: 'white', 
                               border: 'none', 
                               borderRadius: '6px', 
@@ -210,7 +214,7 @@ export default function AdminProfiles() {
                               cursor: 'pointer' 
                             }}
                           >
-                            {student.profileLocked ? 'Unlock' : 'Lock'}
+                            {'Remove'}
                           </button>
                         </td>
                       </tr>

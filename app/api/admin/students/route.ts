@@ -30,7 +30,7 @@ const students = await prisma.student.findMany({
     department: true,
     year: true,
     section: true,
-    // profileLocked: true,  <-- DELETE THIS LINE
+    // profileLocked: true,  // REMOVED: This field was removed from the database
     profileCompleted: true
   },
   orderBy: {

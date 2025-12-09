@@ -18,7 +18,7 @@ export async function PATCH(
     const studentId = id;
 
     // 2. TEMPORARY FIX: Skip the update to pass the build.
-    // Since 'profileLocked' and 'updatedAt' might be missing, we just fetch the student.
+    // Since 'profileLocked' might be missing, we just fetch the student.
     const student = await prisma.student.findUnique({
       where: { id: studentId }
     });

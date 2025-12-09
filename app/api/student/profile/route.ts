@@ -24,7 +24,6 @@ export async function GET() {
         department: true,
         year: true,
         section: true,
-        profileLocked: true,
         profileCompleted: true
       }
     });
@@ -57,9 +56,6 @@ export async function PUT(req: Request) {
     }
 
     // Check if profile is locked
-    if (student.profileLocked) {
-      return NextResponse.json({ error: "Profile is locked by administrator" }, { status: 403 });
-    }
 
     const { name, registerNo, phone, department, year, section } = await req.json();
 
