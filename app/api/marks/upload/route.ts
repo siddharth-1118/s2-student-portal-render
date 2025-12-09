@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 // We import the notification function, but we'll use it safely
 import { sendMarksUpdateNotification } from "@/lib/notifications";
 
+// Force this route to be dynamic (not statically generated)
+export const dynamic = 'force-dynamic';
+
 const ADMIN_EMAILS = [
   "saisiddharthvooka@gmail.com",
   "kothaig2@srmist.edu.in",
