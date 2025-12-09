@@ -1,152 +1,146 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import * as XLSX from 'xlsx';
 
-interface MarkEntry {
-  studentId: string;
-  registerNo: string;
-  name: string;
-  subject: string;
-  examType: string;
-  maxMarks: number;
-  scored: string;
-}
+export default function SmartMarksUpload() {
+  const [file, setFile] = useState<File | null>(null);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-export default function AdminMarksUpload() {
-  const [entries, setEntries] = useState<MarkEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  // 1. Handle File Selection & "AI" Parsing
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    setFile(selectedFile);
 
-  // Default Inputs
-  const [subject, setSubject] = useState('Mathematics');
-  const [exam, setExam] = useState('Internal 1');
-  const [max, setMax] = useState(100);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const bstr = evt.target?.result;
+      if (!bstr) return;
 
-  useEffect(() => {
-    async function fetchStudents() {
-      try {
-        const res = await fetch('/api/admin/students');
-        if (res.ok) {
-          const students = await res.json();
-          if (students.length === 0) {
-            alert("No students found in database. Please register students first.");
-          }
-          const rows = students.map((s: any) => ({
-            studentId: s.id,
-            registerNo: s.registerNo,
-            name: s.name || "Unknown",
-            subject: subject,
-            examType: exam,
-            maxMarks: max,
-            scored: '' 
-          }));
-          setEntries(rows);
-        }
-      } catch (e) {
-        console.error("Failed to load students");
-      } finally {
-        setLoading(false);
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      
+      // FIX: Pass 'ws' (worksheet) here, not 'data'
+      const data = XLSX.utils.sheet_to_json(ws);
+      
+      console.log("Raw Data:", data); // Debugging
+      analyzeAndMapData(data);
+    };
+    reader.readAsBinaryString(selectedFile);
+  };
+
+  // 2. "AI" Analysis: Find correct columns automatically
+  const analyzeAndMapData = (rawData: any[]) => {
+    if (rawData.length === 0) return;
+
+    // Look at the first row to find keys
+    const headers = Object.keys(rawData[0]);
+    
+    // Find the column that looks like a Register Number (contains 'reg', 'no', 'id')
+    const regKey = headers.find(h => /reg|no|id/i.test(h)) || headers[0];
+    
+    // Assume other columns are Subjects (ignoring name/reg no)
+    const subjectKeys = headers.filter(h => h !== regKey && !/name|student/i.test(h));
+
+    // Reformat data for the preview table
+    const formatted = [];
+    for (const row of rawData) {
+      const registerNo = row[regKey];
+      for (const subject of subjectKeys) {
+        formatted.push({
+          registerNo: String(registerNo).trim(),
+          subject: subject,
+          scored: row[subject],
+          maxMarks: 100, // Default to 100
+          examType: "Internal" // Default
+        });
       }
     }
-    fetchStudents();
-  }, []);
-
-  const applyGlobal = () => {
-    setEntries(prev => prev.map(row => ({ ...row, subject, examType: exam, maxMarks: max })));
+    setPreviewData(formatted);
   };
 
-  const handleScoreChange = (index: number, val: string) => {
-    const updated = [...entries];
-    updated[index].scored = val;
-    setEntries(updated);
-  };
-
+  // 3. Upload to Server
   const handleUpload = async () => {
-    // Only upload rows that have a score
-    const filledRows = entries.filter(r => r.scored !== '');
-    if (filledRows.length === 0) return alert("Please enter marks for at least one student.");
-
-    setUploading(true);
+    if (previewData.length === 0) return alert("No valid data found in file.");
+    
+    setLoading(true);
     try {
       const res = await fetch('/api/admin/marks/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marks: filledRows })
+        body: JSON.stringify({ marks: previewData })
       });
+
       if (res.ok) {
-        alert("✅ Marks Uploaded Successfully!");
-        setEntries(prev => prev.map(r => ({ ...r, scored: '' })));
+        alert(`✅ Successfully uploaded ${previewData.length} marks!`);
+        setPreviewData([]);
+        setFile(null);
       } else {
-        alert("Failed to upload.");
+        alert("❌ Failed to upload. Check server logs.");
       }
-    } catch (err) {
-      alert("Error uploading marks.");
+    } catch (error) {
+      console.error(error);
+      alert("Error uploading file.");
     } finally {
-      setUploading(false);
+      setLoading(false);
     }
   };
 
-  if (loading) return <div className="p-10 text-center">Loading Student List...</div>;
-
   return (
-    <div className="p-6 max-w-[1400px] mx-auto bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">📊 Upload Marks (Manual Entry)</h1>
-      
-      {/* Settings Bar */}
-      <div className="bg-white p-6 rounded-xl shadow-sm mb-6 border border-gray-200 flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="block text-sm font-bold text-gray-700">Subject</label>
-          <input className="border p-2 rounded w-40" value={subject} onChange={e => setSubject(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-gray-700">Exam</label>
-          <input className="border p-2 rounded w-40" value={exam} onChange={e => setExam(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-gray-700">Max</label>
-          <input className="border p-2 rounded w-20" type="number" value={max} onChange={e => setMax(Number(e.target.value))} />
-        </div>
-        <button onClick={applyGlobal} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-black">Set All</button>
-        <button onClick={handleUpload} disabled={uploading} className="ml-auto bg-green-600 text-white px-6 py-2 rounded font-bold hover:bg-green-700 disabled:opacity-50">
-          {uploading ? "Saving..." : "💾 Save Marks"}
-        </button>
+    <div className="p-8 max-w-5xl mx-auto min-h-screen bg-gray-50">
+      <h1 className="text-3xl font-bold mb-2 text-indigo-700">📂 Upload Marks File</h1>
+      <p className="text-gray-500 mb-8">Upload an Excel or CSV file. The AI will automatically detect Student IDs and Marks.</p>
+
+      {/* File Drop Zone */}
+      <div className="bg-white p-8 rounded-xl shadow-md border-2 border-dashed border-indigo-200 text-center">
+        <input 
+          type="file" 
+          accept=".csv, .xlsx, .xls"
+          onChange={handleFileChange}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+        />
+        <p className="mt-2 text-xs text-gray-400">Supported: .xlsx, .csv</p>
       </div>
 
-      {/* The Spreadsheet */}
-      <div className="bg-white shadow rounded-lg overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-100 text-gray-600 uppercase text-xs">
-              <th className="p-3 border-b border-r w-32">Reg No</th>
-              <th className="p-3 border-b border-r">Name</th>
-              <th className="p-3 border-b border-r w-40">Subject</th>
-              <th className="p-3 border-b border-r w-40">Exam</th>
-              <th className="p-3 border-b border-r w-20">Max</th>
-              <th className="p-3 border-b w-32 bg-indigo-50 text-indigo-900 font-bold">Scored</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((row, i) => (
-              <tr key={row.studentId} className="hover:bg-gray-50 border-b">
-                <td className="p-3 border-r font-mono text-sm font-bold">{row.registerNo}</td>
-                <td className="p-3 border-r text-sm">{row.name}</td>
-                <td className="p-3 border-r text-sm text-gray-500">{row.subject}</td>
-                <td className="p-3 border-r text-sm text-gray-500">{row.examType}</td>
-                <td className="p-3 border-r text-sm text-gray-500">{row.maxMarks}</td>
-                <td className="p-0 relative h-10">
-                  <input 
-                    type="number" 
-                    placeholder="-" 
-                    className="w-full h-full text-center font-bold text-indigo-700 bg-indigo-50/30 focus:bg-indigo-100 outline-none" 
-                    value={row.scored} 
-                    onChange={e => handleScoreChange(i, e.target.value)} 
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Preview Table */}
+      {previewData.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-xl font-bold mb-4">👀 AI Preview (Check before saving)</h2>
+          <div className="bg-white shadow rounded-lg overflow-hidden max-h-96 overflow-y-auto">
+            <table className="w-full text-left">
+              <thead className="bg-gray-100 sticky top-0">
+                <tr>
+                  <th className="p-3 font-bold">Register No</th>
+                  <th className="p-3 font-bold">Subject</th>
+                  <th className="p-3 font-bold">Scored</th>
+                </tr>
+              </thead>
+              <tbody>
+                {previewData.map((row, i) => (
+                  <tr key={i} className="border-b hover:bg-gray-50">
+                    <td className="p-3 font-mono text-blue-600">{row.registerNo}</td>
+                    <td className="p-3">{row.subject}</td>
+                    <td className="p-3 font-bold">{row.scored}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button 
+              onClick={handleUpload}
+              disabled={loading}
+              className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 shadow-lg disabled:opacity-50"
+            >
+              {loading ? "Uploading & Notifying..." : "✅ Confirm & Send to Students"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
