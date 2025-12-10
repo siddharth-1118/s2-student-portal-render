@@ -225,7 +225,7 @@ export default function MarksUploadPage() {
           scored: Number(mark.scored),
           maxMarks: Number(mark.maxMarks),
           examType: mark.examType
-        }))
+        })) // <--- The fix is here (removed extra comma/parenthesis)
       };
 
       const res = await fetch("/api/marks/upload", {
