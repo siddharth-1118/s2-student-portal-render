@@ -9,33 +9,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid data format' }, { status: 400 });
     }
 
-    // Loop through each mark to UPSERT (Update if exists, Create if new)
     for (const entry of marks) {
       const existingMark = await prisma.mark.findFirst({
         where: {
           studentId: entry.studentId,
           subject: entry.subject,
-          examType: 'Internal', // Assuming this is your default
+          examType: 'Internal', 
         }
       });
 
       if (existingMark) {
-        // UPDATE existing mark
+        // Update existing
         await prisma.mark.update({
           where: { id: existingMark.id },
           data: { 
-            scored: Number(entry.mark) 
+            scored: Number(entry.mark),
+            maxMarks: Number(entry.maxMarks || 100) // 🟢 UPDATE MAX MARKS TOO
           }
         });
       } else {
-        // CREATE new mark
+        // Create new
         await prisma.mark.create({
           data: {
             studentId: entry.studentId,
             subject: entry.subject,
             scored: Number(entry.mark),
             examType: 'Internal',
-            maxMarks: 100
+            // 🟢 USE THE CUSTOM MAX MARK
+            maxMarks: Number(entry.maxMarks || 100) 
           }
         });
       }
