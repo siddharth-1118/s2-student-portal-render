@@ -1,26 +1,28 @@
-// app/api/marks/list/route.ts
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+
+export const dynamic = 'force-dynamic'; // Ensure it always fetches fresh data
 
 export async function GET() {
   try {
-    const students = await prisma.student.findMany({
-      select: {
-        id: true,
-        name: true,
-        registerNo: true,
+    const marks = await prisma.mark.findMany({
+      include: {
+        student: {
+          select: {
+            registerNo: true,
+            name: true,
+          }
+        }
       },
       orderBy: {
-        registerNo: 'asc',
-      },
+        student: {
+          registerNo: 'asc'
+        }
+      }
     });
 
-    return NextResponse.json(students);
+    return NextResponse.json(marks);
   } catch (error) {
-    console.error("Failed to fetch students:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch students" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch marks' }, { status: 500 });
   }
 }

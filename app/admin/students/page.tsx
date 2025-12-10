@@ -28,8 +28,14 @@ export default function AdminStudentsPage() {
       setLoading(true);
       const response = await fetch('/api/marks/list');
       const data = await response.json();
+      
       if (response.ok) {
-        setStudents(data);
+        // 🛡️ PERMANENT FIX: Sanitize data to ensure 'marks' is always an array
+        const safeData = data.map((student: any) => ({
+          ...student,
+          marks: student.marks || [] // If marks is undefined, force it to be []
+        }));
+        setStudents(safeData);
       } else {
         console.error('Failed to fetch students:', data.error);
       }
@@ -43,11 +49,12 @@ export default function AdminStudentsPage() {
   const filteredStudents = students.filter(student => {
     const searchTermLower = searchTerm.toLowerCase();
     return (
-      student.registerNo.toLowerCase().includes(searchTermLower) ||
-      student.name.toLowerCase().includes(searchTermLower) ||
-      student.email?.toLowerCase().includes(searchTermLower) ||
-      student.marks.some((mark: any) => 
-        mark.subject.toLowerCase().includes(searchTermLower)
+      // FIX: Add ( || '') to prevent crashes if data is missing
+      (student.registerNo || '').toLowerCase().includes(searchTermLower) ||
+      (student.name || '').toLowerCase().includes(searchTermLower) ||
+      (student.email || '').toLowerCase().includes(searchTermLower) ||
+      student.marks?.some((mark: any) => 
+        (mark.subject || '').toLowerCase().includes(searchTermLower)
       )
     );
   });
@@ -134,8 +141,20 @@ export default function AdminStudentsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
           <StatCard title="Total Students" value={students.length} icon="👥" color="#667eea" />
           <StatCard title="Students with Email" value={students.filter(s => s.email).length} icon="📧" color="#f093fb" />
-          <StatCard title="Students with Marks" value={students.filter(s => s.marks.length > 0).length} icon="📊" color="#43e97b" />
-          <StatCard title="Total Marks Entries" value={students.reduce((acc, student) => acc + student.marks.length, 0)} icon="📝" color="#f5576c" />
+          
+          {/* Safe Checks applied here */}
+          <StatCard 
+            title="Students with Marks" 
+            value={students.filter(s => s.marks?.length > 0).length} 
+            icon="📊" 
+            color="#43e97b" 
+          />
+          <StatCard 
+            title="Total Marks Entries" 
+            value={students.reduce((acc, student) => acc + (student.marks?.length || 0), 0)} 
+            icon="📝" 
+            color="#f5576c" 
+          />
         </div>
 
         {/* Students Table */}
@@ -183,16 +202,18 @@ export default function AdminStudentsPage() {
                         <span style={{ 
                           padding: '4px 8px', 
                           borderRadius: '12px', 
-                          backgroundColor: student.marks.length > 0 ? '#dcfce7' : '#fee2e2',
-                          color: student.marks.length > 0 ? '#166534' : '#991b1b',
+                          // SAFE CHECKS ADDED HERE
+                          backgroundColor: student.marks?.length > 0 ? '#dcfce7' : '#fee2e2',
+                          color: student.marks?.length > 0 ? '#166534' : '#991b1b',
                           fontSize: '12px',
                           fontWeight: '600'
                         }}>
-                          {student.marks.length}
+                          {student.marks?.length || 0}
                         </span>
                       </td>
                       <td style={{ padding: '12px', color: '#6b7280' }}>
-                        {student.marks.length > 0 ? (
+                        {/* SAFE CHECKS ADDED HERE */}
+                        {student.marks?.length > 0 ? (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {Array.from(new Set(student.marks.map((mark: any) => mark.subject))).slice(0, 3).map((subject: any, index: number) => (
                               <span key={index} style={{ 
