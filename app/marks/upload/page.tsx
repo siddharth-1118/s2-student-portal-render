@@ -17,7 +17,7 @@ type MarkEntry = {
   registerNo: string;
   name: string;
   subject: string;
-  scored: number | null;
+  scored: number | null | string; // Allow string for input handling
   maxMarks: number;
   examType: string;
 };
@@ -38,7 +38,10 @@ export default function MarksUploadPage() {
   useEffect(() => {
     const loadStudents = async () => {
       try {
-        const res = await fetch("/api/marks/list");
+        // Adjust API path if needed (e.g., /api/admin/students)
+        const res = await fetch("/api/admin/students"); 
+        if (!res.ok) throw new Error("Failed to fetch students");
+        
         const studentsData = await res.json();
         setStudents(studentsData.map((s: any) => ({
           id: s.id,
@@ -53,7 +56,7 @@ export default function MarksUploadPage() {
             registerNo: student.registerNo,
             name: student.name,
             subject,
-            scored: null,
+            scored: '', // Start empty
             maxMarks: 100,
             examType: "Internal"
           }))
@@ -65,7 +68,7 @@ export default function MarksUploadPage() {
     };
 
     loadStudents();
-  }, []);
+  }, []); // Run once on mount
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] || null;
@@ -77,7 +80,6 @@ export default function MarksUploadPage() {
       Papa.parse(f, {
         header: true,
         skipEmptyLines: true,
-        // Remove the preview limitation to show all rows in preview
         complete: (results) => {
           setPreviewData(results.data as Row[]);
         }
@@ -116,35 +118,39 @@ export default function MarksUploadPage() {
     try {
       const rows = await parseCsvFile(file);
 
+      // Map CSV rows to standard Marks format if API expects 'marks'
+      // Or send 'rows' if your API logic parses it manually.
+      // Assuming we send 'marks' array based on previous logic:
       const body = {
-        rows, // will be picked by your API route
+        marks: rows.map(r => ({
+            registerNo: Object.values(r)[0], // Assuming first col is RegNo
+            // You might need smarter mapping here depending on CSV structure
+            ...r, 
+            examType, 
+            maxMarks 
+        })), 
+        rows, // Sending rows too just in case your API uses this
         examType,
         maxMarks,
       };
 
       const res = await fetch("/api/marks/upload", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setStatus(
-          data?.error ||
-            `Upload failed with status ${res.status}`,
-        );
+        setStatus(data?.error || `Upload failed with status ${res.status}`);
         return;
       }
 
       setStatus(
-        `✅ Upload successful! Created: ${data.createdCount}, Updated: ${data.updatedCount}. Problems: ${data.problems?.length || 0}`,
+        `✅ Upload successful! Created: ${data.createdCount || 0}, Updated: ${data.updatedCount || 0}.`
       );
       
-      // Clear the form after successful upload
       setFile(null);
       setPreviewData([]);
     } catch (err: any) {
@@ -168,7 +174,7 @@ export default function MarksUploadPage() {
         registerNo: student.registerNo,
         name: student.name,
         subject: newSubject,
-        scored: null,
+        scored: '',
         maxMarks: 100,
         examType: "Internal"
       });
@@ -196,13 +202,14 @@ export default function MarksUploadPage() {
     );
   };
 
+  // --- FIXED FUNCTION ---
   const handleTableUpload = async () => {
     setLoading(true);
     setStatus(null);
 
     try {
-      // Filter out entries with null scores
-      const validMarks = marksData.filter(m => m.scored !== null);
+      // Filter out entries with empty scores
+      const validMarks = marksData.filter(m => m.scored !== null && m.scored !== '' && m.scored !== undefined);
       
       if (validMarks.length === 0) {
         setStatus("Please enter at least one mark before uploading.");
@@ -210,56 +217,35 @@ export default function MarksUploadPage() {
         return;
       }
 
-      // Group marks by student
-      const groupedMarks: Record<string, any[]> = {};
-      validMarks.forEach(mark => {
-        const key = `${mark.registerNo}-${mark.examType}`;
-        if (!groupedMarks[key]) {
-          groupedMarks[key] = [];
-        }
-        groupedMarks[key].push(mark);
+      // Construct payload directly
+      const body = {
+        marks: validMarks.map(mark => ({
+          registerNo: mark.registerNo,
+          subject: mark.subject,
+          scored: Number(mark.scored),
+          maxMarks: Number(mark.maxMarks),
+          examType: mark.examType
+        }))
+      };
+
+      const res = await fetch("/api/marks/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
 
-      let createdCount = 0;
-      let updatedCount = 0;
-      const problems: string[] = [];
+      const data = await res.json();
 
-      // Process each group
-      for (const [key, marksGroup] of Object.entries(groupedMarks)) {
-        const body = {
-                marks: marksGroup.map(mark => (
-                    registerNo: mark.registerNo,
-        subject: mark.subject,
-        scored: mark.scored,
-        maxMarks: mark.maxMarks,
-        examType: mark.examType),
-        }})
-          };
-
-        const res = await fetch("/api/marks/upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          problems.push(`Failed to upload marks for ${key}: ${data.error}`);
-        } else {
-          createdCount += data.createdCount || 0;
-          updatedCount += data.updatedCount || 0;
-        }
+      if (!res.ok) {
+        setStatus(`Failed to upload: ${data.error}`);
+      } else {
+        setStatus(
+          `✅ Upload successful! Created: ${data.createdCount || 0}, Updated: ${data.updatedCount || 0}.`
+        );
       }
-
-      setStatus(
-        `✅ Upload successful! Created: ${createdCount}, Updated: ${updatedCount}. Problems: ${problems.length || 0}`,
-      );
     } catch (err: any) {
       console.error(err);
-      setStatus("❌ Unexpected error while uploading. Check console/logs.");
+      setStatus("❌ Unexpected error while uploading.");
     } finally {
       setLoading(false);
     }
@@ -330,9 +316,7 @@ export default function MarksUploadPage() {
                   textAlign: 'center', 
                   backgroundColor: '#f9fafb',
                   transition: 'all 0.3s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#667eea'}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#d1d5db'}>
+                }}>
                   <input 
                     type="file" 
                     accept=".csv" 
@@ -361,16 +345,7 @@ export default function MarksUploadPage() {
                     type="text"
                     value={examType}
                     onChange={(e) => setExamType(e.target.value)}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px 16px', 
-                      border: '2px solid #e5e7eb', 
-                      borderRadius: '8px', 
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                    style={{ width: '100%', padding: '12px 16px', border: '2px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
                   />
                 </div>
 
@@ -382,16 +357,7 @@ export default function MarksUploadPage() {
                     type="number"
                     value={maxMarks}
                     onChange={(e) => setMaxMarks(Number(e.target.value))}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px 16px', 
-                      border: '2px solid #e5e7eb', 
-                      borderRadius: '8px', 
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                    style={{ width: '100%', padding: '12px 16px', border: '2px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
                   />
                 </div>
               </div>
@@ -412,67 +378,36 @@ export default function MarksUploadPage() {
                   boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
                   transition: 'all 0.3s'
                 }}
-                onMouseEnter={(e) => !loading && (e.currentTarget.style.transform = 'translateY(-2px)')}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
-                {loading ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <div style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                    Uploading...
-                  </div>
-                ) : (
-                  '📤 Upload Marks'
-                )}
+                {loading ? 'Uploading...' : '📤 Upload Marks'}
               </button>
 
-              {/* Preview Section */}
               {previewData.length > 0 && (
                 <div style={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', borderRadius: '20px', padding: '32px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)', marginTop: '24px' }}>
                   <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: '#111827' }}>📋 CSV Preview</h2>
-                  <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
-                    Showing {previewData.length} rows from your uploaded file
-                  </p>
-                  
                   <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ backgroundColor: '#f3f4f6', position: 'sticky', top: 0 }}>
-                            {Object.keys(previewData[0]).map((header) => (
-                              <th 
-                                key={header} 
-                                style={{ 
-                                  padding: '12px', 
-                                  textAlign: 'left', 
-                                  borderBottom: '2px solid #e5e7eb',
-                                  fontWeight: '600',
-                                  color: '#374151'
-                                }}
-                              >
-                                {header}
-                              </th>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f3f4f6', position: 'sticky', top: 0 }}>
+                          {Object.keys(previewData[0]).map((header) => (
+                            <th key={header} style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>
+                              {header}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewData.map((row, rowIndex) => (
+                          <tr key={rowIndex} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                            {Object.values(row).map((cell, cellIndex) => (
+                              <td key={cellIndex} style={{ padding: '12px', color: '#374151' }}>
+                                {String(cell)}
+                              </td>
                             ))}
                           </tr>
-                        </thead>
-                        <tbody>
-                          {previewData.map((row, rowIndex) => (
-                            <tr key={rowIndex} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                              {Object.values(row).map((cell, cellIndex) => (
-                                <td 
-                                  key={cellIndex} 
-                                  style={{ 
-                                    padding: '12px', 
-                                    color: '#374151'
-                                  }}
-                                >
-                                  {String(cell)}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -500,52 +435,27 @@ export default function MarksUploadPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                    🏷️ Exam type
-                  </label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>🏷️ Exam type</label>
                   <input
                     type="text"
                     value={examType}
                     onChange={(e) => {
                       setExamType(e.target.value);
-                      // Update examType for all marks
                       setMarksData(prev => prev.map(m => ({ ...m, examType: e.target.value })));
                     }}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px 16px', 
-                      border: '2px solid #e5e7eb', 
-                      borderRadius: '8px', 
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                    style={{ width: '100%', padding: '12px 16px', border: '2px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
                   />
                 </div>
-
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>
-                    🎯 Max marks
-                  </label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>🎯 Max marks</label>
                   <input
                     type="number"
                     value={maxMarks}
                     onChange={(e) => {
                       setMaxMarks(Number(e.target.value));
-                      // Update maxMarks for all marks
                       setMarksData(prev => prev.map(m => ({ ...m, maxMarks: Number(e.target.value) })));
                     }}
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px 16px', 
-                      border: '2px solid #e5e7eb', 
-                      borderRadius: '8px', 
-                      fontSize: '14px',
-                      outline: 'none'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                    style={{ width: '100%', padding: '12px 16px', border: '2px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
                   />
                 </div>
               </div>
@@ -555,32 +465,16 @@ export default function MarksUploadPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
                     <thead>
                       <tr style={{ backgroundColor: '#f3f4f6', position: 'sticky', top: 0 }}>
-                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>
-                          Reg No
-                        </th>
-                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>
-                          Name
-                        </th>
-                        {subjects.map((subject, index) => (
-                          <th key={subject} style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151', position: 'relative' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>Reg No</th>
+                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>Name</th>
+                        {subjects.map((subject) => (
+                          <th key={subject} style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                               {subject}
                               {subjects.length > 1 && (
                                 <button
                                   onClick={() => removeSubject(subject)}
-                                  style={{
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '50%',
-                                    width: '20px',
-                                    height: '20px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '12px'
-                                  }}
+                                  style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}
                                 >
                                   ×
                                 </button>
@@ -593,37 +487,17 @@ export default function MarksUploadPage() {
                     <tbody>
                       {students.map((student) => (
                         <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                          <td style={{ padding: '12px', fontFamily: 'monospace', color: '#374151' }}>
-                            {student.registerNo}
-                          </td>
-                          <td style={{ padding: '12px', color: '#374151' }}>
-                            {student.name}
-                          </td>
+                          <td style={{ padding: '12px', fontFamily: 'monospace', color: '#374151' }}>{student.registerNo}</td>
+                          <td style={{ padding: '12px', color: '#374151' }}>{student.name}</td>
                           {subjects.map((subject) => {
-                            const markEntry = marksData.find(
-                              m => m.studentId === student.id && m.subject === subject
-                            );
-                            
+                            const markEntry = marksData.find(m => m.studentId === student.id && m.subject === subject);
                             return (
                               <td key={subject} style={{ padding: '12px', textAlign: 'center' }}>
                                 <input
                                   type="number"
                                   value={markEntry?.scored || ''}
-                                  onChange={(e) => 
-                                    updateMark(
-                                      student.id, 
-                                      subject, 
-                                      'scored', 
-                                      e.target.value ? Number(e.target.value) : null
-                                    )
-                                  }
-                                  style={{
-                                    width: '80px',
-                                    padding: '8px',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '4px',
-                                    textAlign: 'center'
-                                  }}
+                                  onChange={(e) => updateMark(student.id, subject, 'scored', e.target.value)}
+                                  style={{ width: '80px', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px', textAlign: 'center' }}
                                   placeholder="-"
                                 />
                               </td>
@@ -652,17 +526,8 @@ export default function MarksUploadPage() {
                   boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
                   transition: 'all 0.3s'
                 }}
-                onMouseEnter={(e) => !loading && (e.currentTarget.style.transform = 'translateY(-2px)')}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
-                {loading ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <div style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                    Saving Marks...
-                  </div>
-                ) : (
-                  '💾 Save Marks'
-                )}
+                {loading ? 'Saving Marks...' : '💾 Save Marks'}
               </button>
             </div>
           )}
