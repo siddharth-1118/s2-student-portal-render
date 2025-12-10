@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
 import NotificationButton from '@/components/NotificationButton';
 
 // Types
@@ -34,6 +33,7 @@ export default function MarksUploadPage() {
 
   // --- CSV MODE STATE ---
   const [previewData, setPreviewData] = useState<any[]>([]);
+    const [csvSubject, setCsvSubject] = useState('Mathematics');
   const [csvExam, setCsvExam] = useState('Internal');
   const [csvMax, setCsvMax] = useState(100);
   const [fileName, setFileName] = useState('');
@@ -74,24 +74,43 @@ export default function MarksUploadPage() {
       const bstr = evt.target?.result;
       if (!bstr) return;
       
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws);
+      // Parse CSV using simple parsing
+      const text = bstr;
+      const lines = text.split('\n').filter(line => line.trim());
+      if (lines.length < 2) {
+        alert('CSV file is empty or invalid');
+        return;
+      }
+
+      // Parse header
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
       
-      // Auto-map data with Current CSV Inputs
-      const mapped = data.map((row: any) => {
-        const keys = Object.keys(row);
-        const regKey = keys.find(k => /reg|no|id/i.test(k)) || keys[0];
-        const subjectKey = keys.find(k => k !== regKey && !/name/i.test(k)) || "Marks";
-        
-        return {
-          registerNo: String(row[regKey]).trim(),
-          subject: subjectKey,
-          scored: row[subjectKey],
-          maxMarks: csvMax,    // Use the input value
-          examType: csvExam    // Use the input value
-        };
-      });
+      // Find column indices
+      const regNoIdx = headers.findIndex(h => h.includes('register') || h.includes('regno') || h.includes('reg'));
+      const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('student'));
+      const subjectIdx = headers.findIndex(h => h.includes('subject'));
+      const marksIdx = headers.findIndex(h => h.includes('mark') || h.includes('score'));
+
+      if (regNoIdx === -1 || marksIdx === -1) {
+        alert('CSV must have Register Number and Marks columns');
+        return;
+      }
+
+      // Parse data rows
+      const mapped = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        if (values.length > regNoIdx && values[regNoIdx]) {
+          mapped.push({
+            registerNo: values[regNoIdx],
+            subject: subjectIdx !== -1 ? values[subjectIdx] : csvSubject,
+            scored: marksIdx !== -1 ? values[marksIdx] : '',
+            maxMarks: csvMax,
+            examType: csvExam
+          });
+        }
+      }
+      
       setPreviewData(mapped);
     };
     reader.readAsBinaryString(file);
@@ -185,7 +204,7 @@ export default function MarksUploadPage() {
           <div className="bg-white p-10 rounded-xl shadow-sm border-2 border-dashed border-indigo-300 text-center hover:bg-indigo-50 transition relative">
             <input 
               type="file" 
-              accept=".csv, .xlsx"
+              accept=".csv"
               onChange={handleFileChange}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
