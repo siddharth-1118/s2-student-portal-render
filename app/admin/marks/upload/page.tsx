@@ -75,8 +75,7 @@ export default function MarksUploadPage() {
       if (!bstr) return;
       
       // Parse CSV using simple parsing
-      const text = bstr;
-      const lines = text.split('\n').filter(line => line.trim());
+      const text = typeof bstr === 'string' ? bstr : new TextDecoder().decode(bstr);      const lines = text.split('\n').filter(line => line.trim());
       if (lines.length < 2) {
         alert('CSV file is empty or invalid');
         return;
