@@ -1,49 +1,36 @@
-// app/api/student/marks/route.ts
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { prisma } from '@/lib/prisma';
+import { authOptions } from '@/lib/auth'; // Ensure this path points to your auth config
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // 1. Get the logged-in user's session
     const session = await getServerSession(authOptions);
-    
+
     if (!session || !session.user?.email) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log("Fetching marks for user:", session.user.email);
-
-    // Find the student linked to this email
-    const student = await prisma.student.findFirst({
+    // 2. Find the Student ID using their email
+    const student = await prisma.student.findUnique({
       where: { email: session.user.email },
-      include: { marks: true },
+      include: {
+        marks: true // <--- CRITICAL: Get the marks!
+      }
     });
 
     if (!student) {
-      console.log("No student found for email:", session.user.email);
-      return NextResponse.json({ error: "No student record found for this email" }, { status: 404 });
+      return NextResponse.json({ error: 'Student profile not found' }, { status: 404 });
     }
 
-    console.log(`Found student ${student.name} with ${student.marks.length} marks`);
-
-    // Calculate percentage for each mark
-    const marksWithPercentage = student.marks.map(mark => ({
-      ...mark,
-      percentage: mark.maxMarks > 0 ? Math.round((mark.scored / mark.maxMarks) * 1000) / 10 : 0
-    }));
-
-    return NextResponse.json({
-      student: {
-        id: student.id,
-        name: student.name,
-        registerNo: student.registerNo,
-        email: student.email
-      },
-      marks: marksWithPercentage
-    });
+    // 3. Send the marks back
+    return NextResponse.json(student.marks);
+    
   } catch (error) {
-    console.error("Error fetching student marks:", error);
-    return NextResponse.json({ error: "Failed to fetch student marks" }, { status: 500 });
+    console.error("Error fetching marks:", error);
+    return NextResponse.json({ error: 'Failed to fetch marks' }, { status: 500 });
   }
 }

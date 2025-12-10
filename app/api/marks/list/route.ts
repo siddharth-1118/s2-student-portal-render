@@ -1,28 +1,23 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export const dynamic = 'force-dynamic'; // Ensure it always fetches fresh data
+// ⚠️ IMPORTANT: This line prevents Next.js from showing old cached data
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const marks = await prisma.mark.findMany({
-      include: {
-        student: {
-          select: {
-            registerNo: true,
-            name: true,
-          }
-        }
-      },
+    const students = await prisma.student.findMany({
       orderBy: {
-        student: {
-          registerNo: 'asc'
-        }
-      }
+        registerNo: 'asc', // Sort by Register Number
+      },
+      // 👇 THIS IS THE MISSING PART
+      include: {
+        marks: true, // This tells the DB: "Fetch the marks for these students too"
+      },
     });
 
-    return NextResponse.json(marks);
+    return NextResponse.json(students);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch marks' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch students' }, { status: 500 });
   }
 }

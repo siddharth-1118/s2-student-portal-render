@@ -2,85 +2,83 @@
 
 import { useState, useEffect } from 'react';
 
-interface Mark {
-  id: number;
-  subject: string;
-  examType: string;
-  scored: number;
-  maxMarks: number;
-}
-
 export default function StudentMarksPage() {
-  // Initialize as empty array to prevent "map of null" crashes
-  const [marks, setMarks] = useState<Mark[]>([]);
+  const [marks, setMarks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
-    async function fetchMarks() {
+    const fetchMarks = async () => {
       try {
         const res = await fetch('/api/student/marks');
-        
-        // Handle non-JSON responses (like 404 or 500 HTML pages)
-        if (!res.ok) throw new Error(`Server Error: ${res.status}`);
-        
-        const data = await res.json();
-        
-        // Safety check: Ensure data is actually an array
-        if (Array.isArray(data)) {
+        if (res.ok) {
+          const data = await res.json();
           setMarks(data);
-        } else {
-          setMarks([]); // Fallback
         }
-      } catch (err) {
-        console.error("Error loading marks:", err);
-        setError("Failed to load marks.");
+      } catch (error) {
+        console.error('Failed to load marks');
       } finally {
         setLoading(false);
       }
-    }
+    };
+
     fetchMarks();
   }, []);
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading your marks...</div>;
-  if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading your marks...</div>;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto min-h-screen bg-gray-50">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">📝 My Marks</h1>
-      
-      {marks.length === 0 ? (
-        <div className="bg-white p-8 rounded-lg shadow text-center text-gray-500">
-          No marks found yet.
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-gray-100 border-b">
-              <tr>
-                <th className="p-4 font-semibold text-gray-600">Subject</th>
-                <th className="p-4 font-semibold text-gray-600">Exam</th>
-                <th className="p-4 font-semibold text-gray-600">Score</th>
-                <th className="p-4 font-semibold text-gray-600">Percentage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {marks.map((m) => (
-                <tr key={m.id} className="border-b hover:bg-gray-50">
-                  <td className="p-4">{m.subject}</td>
-                  <td className="p-4 text-gray-500 text-sm">{m.examType}</td>
-                  <td className="p-4 font-bold text-indigo-600">
-                    {m.scored} <span className="text-gray-400 font-normal text-xs">/ {m.maxMarks}</span>
-                  </td>
-                  <td className="p-4 text-sm font-medium text-gray-700">
-                    {((m.scored / m.maxMarks) * 100).toFixed(1)}%
-                  </td>
+    <div style={{ minHeight: '100vh', padding: '40px', background: '#f3f4f6' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        
+        <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '20px', color: '#111827' }}>
+          📊 My Performance
+        </h1>
+
+        {marks.length === 0 ? (
+          <div style={{ padding: '40px', background: 'white', borderRadius: '12px', textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: '#374151' }}>No marks yet</h3>
+            <p style={{ color: '#6b7280' }}>Your marks have not been uploaded by the admin yet.</p>
+          </div>
+        ) : (
+          <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead style={{ background: '#374151', color: 'white' }}>
+                <tr>
+                  <th style={{ padding: '16px' }}>Subject</th>
+                  <th style={{ padding: '16px' }}>Exam Type</th>
+                  <th style={{ padding: '16px' }}>Score</th>
+                  <th style={{ padding: '16px' }}>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {marks.map((entry) => (
+                  <tr key={entry.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <td style={{ padding: '16px', fontWeight: '500' }}>{entry.subject}</td>
+                    <td style={{ padding: '16px', color: '#6b7280' }}>{entry.examType || 'Internal'}</td>
+                    <td style={{ padding: '16px', fontWeight: 'bold', fontSize: '18px' }}>
+                      {/* 🛡️ FIX: Use 'scored' because that is your DB column name */}
+                      {entry.scored} / {entry.maxMarks || 100}
+                    </td>
+                    <td style={{ padding: '16px' }}>
+                      <span style={{
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        // Color logic: Green for Pass (>=50), Red for Fail
+                        backgroundColor: entry.scored >= 50 ? '#dcfce7' : '#fee2e2',
+                        color: entry.scored >= 50 ? '#166534' : '#991b1b',
+                      }}>
+                        {entry.scored >= 50 ? 'PASS' : 'FAIL'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
