@@ -227,13 +227,14 @@ export default function MarksUploadPage() {
       // Process each group
       for (const [key, marksGroup] of Object.entries(groupedMarks)) {
         const body = {
-                marks: marksGroup.map(mark => {
+                marks: marksGroup.map(mark => (
                     registerNo: mark.registerNo,
         subject: mark.subject,
         scored: mark.scored,
         maxMarks: mark.maxMarks,
         examType: mark.examType),
-        };
+        }})
+          };
 
         const res = await fetch("/api/marks/upload", {
           method: "POST",
