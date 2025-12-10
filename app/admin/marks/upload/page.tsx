@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import NotificationButton from '@/components/NotificationButton';
 
 // Types
 interface Student {
@@ -189,11 +188,6 @@ export default function MarksUploadPage() {
         </button>
       </div>
 
-      {/* --- NOTIFICATION TOGGLE --- */}
-      <div className="mb-8 p-4 bg-white border border-gray-300 rounded-lg flex justify-between items-center shadow-sm">
-        <p className="text-gray-700">Enable notifications to get updates when your marks are changed.</p>
-        <NotificationButton />
-      </div>
 
       {/* ================= CSV MODE ================= */}
       {activeTab === 'csv' && (
