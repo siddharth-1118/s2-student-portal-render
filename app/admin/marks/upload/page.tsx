@@ -134,7 +134,7 @@ export default function MarksUploadPage() {
         maxMarks,
       };
 
-      const res = await fetch("/api/marks/upload", {
+      const res = await fetch("/api/admin/marks/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
