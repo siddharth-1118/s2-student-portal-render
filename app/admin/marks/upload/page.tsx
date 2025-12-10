@@ -83,32 +83,59 @@ export default function MarksUploadPage() {
       // Parse header
       const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
       
-      // Find column indices
+// Find Register Number and Name columns
       const regNoIdx = headers.findIndex(h => h.includes('register') || h.includes('regno') || h.includes('reg'));
       const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('student'));
-      const subjectIdx = headers.findIndex(h => h.includes('subject'));
-      const marksIdx = headers.findIndex(h => h.includes('mark') || h.includes('score'));
-
-      if (regNoIdx === -1 || marksIdx === -1) {
-        alert('CSV must have Register Number and Marks columns');
+      
+      if (regNoIdx === -1) {
+        alert('CSV must have a Register Number column');
         return;
       }
 
-      // Parse data rows
+      // Identify subject columns (all columns except register number and name)
+      const subjectColumns: {index: number, name: string}[] = [];
+      headers.forEach((header, idx) => {
+        // Skip register number and name columns
+        const isRegister = header.includes('register') || header.includes('regno') || header.includes('reg');
+        const isName = header.includes('name') || header.includes('student');
+        
+        if (!isRegister && !isName && header.trim()) {
+          subjectColumns.push({ index: idx, name: header });
+        }
+      });
+
+      if (subjectColumns.length === 0) {
+        alert('CSV must have at least one subject/marks column');
+        return;
+      }
+
+      // Parse data rows - create multiple entries per student (one per subject)
       const mapped = [];
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',').map(v => v.trim());
+        
         if (values.length > regNoIdx && values[regNoIdx]) {
-          mapped.push({
-            registerNo: values[regNoIdx],
-            subject: subjectIdx !== -1 ? values[subjectIdx] : csvSubject,
-            scored: marksIdx !== -1 ? values[marksIdx] : '',
-            maxMarks: csvMax,
-            examType: csvExam
-          });
+          const registerNo = values[regNoIdx];
+          const studentName = nameIdx !== -1 ? values[nameIdx] : '';
+          
+          // Create one entry for each subject column that has a value
+          for (const subjectCol of subjectColumns) {
+            const marks = values[subjectCol.index];
+            
+            // Only add entry if marks value exists and is not empty
+            if (marks && marks.trim() !== '') {
+              mapped.push({
+                registerNo: registerNo,
+                name: studentName,
+                subject: subjectCol.name,
+                scored: marks,
+                maxMarks: csvMax,
+                examType: csvExam
+              });
+            }
+          }
         }
-      }
-      
+      }      
       setPreviewData(mapped);
     };
     reader.readAsBinaryString(file);
