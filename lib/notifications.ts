@@ -1,7 +1,6 @@
 import webPush from 'web-push';
 import { prisma } from "@/lib/prisma";
 
-// Safe setup for VAPID keys
 function setupWebPush() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -19,7 +18,7 @@ export async function sendBroadcastNotification(title: string, message: string) 
 
   try {
     const subs = await prisma.pushSubscription.findMany();
-    console.log(`📣 Sending broadcast to ${subs.length} subscribers...`);
+    if (!subs || subs.length === 0) return;
 
     const payload = JSON.stringify({ 
       title: title, 
@@ -28,23 +27,22 @@ export async function sendBroadcastNotification(title: string, message: string) 
     });
 
     await Promise.all(subs.map(async (sub) => {
-      // FIX: Check for separate columns
+      // 1. Check if the separate columns exist
       if (!sub.endpoint || !sub.auth || !sub.p256dh) return;
 
       try {
+        // 2. Manually build the keys object (Fixes the TypeScript error)
         await webPush.sendNotification({
           endpoint: sub.endpoint,
-          // FIX: Construct the keys object manually
           keys: {
             p256dh: sub.p256dh,
             auth: sub.auth
           }
-        }, payload);
+        } as any, payload);
+        
       } catch (err: any) {
         if (err.statusCode === 410) {
-          try {
-            await prisma.pushSubscription.delete({ where: { id: sub.id } });
-          } catch (e) { /* Ignore */ }
+          try { await prisma.pushSubscription.delete({ where: { id: sub.id } }); } catch (e) {}
         }
       }
     }));

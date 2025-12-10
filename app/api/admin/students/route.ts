@@ -13,8 +13,6 @@ export async function GET() {
       },
       orderBy: { registerNo: 'asc' }
     });
-    
-    // Return empty array if no students found
     return NextResponse.json(students || []);
   } catch (error) {
     return NextResponse.json({ error: "Failed to fetch students" }, { status: 500 });
