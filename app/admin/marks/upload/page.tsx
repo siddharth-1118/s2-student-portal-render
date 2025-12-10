@@ -137,7 +137,7 @@ export default function MarksUploadPage() {
     let dataToUpload = [];
 
     if (activeTab === 'csv') {
-      dataToUpload = previewData.filter(d => d.scored && d.scored.trim() !== '').map(d => ({ ...d, examType: csvExam, maxMarks: csvMax }));
+      dataToUpload = previewData.map(d => ({ ...d, examType: csvExam, maxMarks: csvMax }));
     } else {
       dataToUpload = entries.filter(r => r.scored !== '');
     }
