@@ -172,11 +172,14 @@ export default function MarksUploadPage() {
     if (dataToUpload.length === 0) return alert("No marks to upload.");
 
     setUploading(true);
+        console.log('📤 Sending data:', JSON.stringify({ marks: dataToUpload }, null, 2));
     try {
       const res = await fetch('/api/marks/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marks: dataToUpload })
+        body: JSON.stringify({ 130
+                             174
+                             })
       });
 
       if (res.ok) {
