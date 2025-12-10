@@ -147,7 +147,7 @@ export default function MarksUploadPage() {
 
     setUploading(true);
     try {
-      const res = await fetch('/api/admin/marks/upload', {
+      const res = await fetch('/api/marks/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ marks: dataToUpload })
