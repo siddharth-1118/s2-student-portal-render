@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
+import NotificationButton from '@/components/NotificationButton';
 
 // Types
 interface Student {
@@ -32,7 +34,6 @@ export default function MarksUploadPage() {
 
   // --- CSV MODE STATE ---
   const [previewData, setPreviewData] = useState<any[]>([]);
-    const [csvSubject, setCsvSubject] = useState('Mathematics');
   const [csvExam, setCsvExam] = useState('Internal');
   const [csvMax, setCsvMax] = useState(100);
   const [fileName, setFileName] = useState('');
@@ -62,80 +63,37 @@ export default function MarksUploadPage() {
     loadStudents();
   }, []);
 
-  // 2. Handle File Upload (CSV Mode)
+  // 2. Handle File Upload (CSV/Excel Mode)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
     const reader = new FileReader();
+    
     reader.onload = (evt) => {
       const bstr = evt.target?.result;
       if (!bstr) return;
       
-      // Parse CSV using simple parsing
-      const text = typeof bstr === 'string' ? bstr : new TextDecoder().decode(bstr);      const lines = text.split('\n').filter(line => line.trim());
-      if (lines.length < 2) {
-        alert('CSV file is empty or invalid');
-        return;
-      }
-
-      // Parse header
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws);
       
-// Find Register Number and Name columns
-      const regNoIdx = headers.findIndex(h => h.includes('register') || h.includes('regno') || h.includes('reg'));
-      const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('student'));
-      
-      if (regNoIdx === -1) {
-        alert('CSV must have a Register Number column');
-        return;
-      }
-
-      // Identify subject columns (all columns except register number and name)
-      const subjectColumns: {index: number, name: string}[] = [];
-      headers.forEach((header, idx) => {
-        // Skip register number and name columns
-        const isRegister = header.includes('register') || header.includes('regno') || header.includes('reg');
-        const isName = header.includes('name') || header.includes('student');
+      // Auto-map data
+      const mapped = data.map((row: any) => {
+        const keys = Object.keys(row);
+        // Find column names dynamically (case-insensitive)
+        const regKey = keys.find(k => /reg|no|id/i.test(k)) || keys[0];
+        const subjectKey = keys.find(k => k !== regKey && !/name/i.test(k)) || "Marks";
         
-        if (!isRegister && !isName && header.trim()) {
-          subjectColumns.push({ index: idx, name: header });
-        }
+        return {
+          registerNo: String(row[regKey]).trim(),
+          subject: subjectKey,
+          scored: row[subjectKey],
+          maxMarks: csvMax,
+          examType: csvExam
+        };
       });
-
-      if (subjectColumns.length === 0) {
-        alert('CSV must have at least one subject/marks column');
-        return;
-      }
-
-      // Parse data rows - create multiple entries per student (one per subject)
-      const mapped = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
-        
-        if (values.length > regNoIdx && values[regNoIdx]) {
-          const registerNo = values[regNoIdx];
-          const studentName = nameIdx !== -1 ? values[nameIdx] : '';
-          
-          // Create one entry for each subject column that has a value
-          for (const subjectCol of subjectColumns) {
-            const marks = values[subjectCol.index];
-            
-            // Only add entry if marks value exists and is not empty
-            if (marks && marks.trim() !== '') {
-              mapped.push({
-                registerNo: registerNo,
-                name: studentName,
-                subject: subjectCol.name,
-                scored: marks,
-                maxMarks: csvMax,
-                examType: csvExam
-              });
-            }
-          }
-        }
-      }      
       setPreviewData(mapped);
     };
     reader.readAsBinaryString(file);
@@ -160,12 +118,18 @@ export default function MarksUploadPage() {
 
   // 5. Unified Upload Function
   const handleUpload = async () => {
-    // If CSV mode, re-apply the latest Exam Type/Max Marks just in case user changed them after selecting file
     let dataToUpload = [];
 
+    // Prepare data based on active tab
     if (activeTab === 'csv') {
-      dataToUpload = previewData.map(d => ({ ...d, examType: csvExam, maxMarks: csvMax }));
+      // Apply current Exam/Max inputs to the CSV data
+      dataToUpload = previewData.map(d => ({
+        ...d,
+        examType: csvExam,
+        maxMarks: csvMax
+      }));
     } else {
+      // Filter out empty rows from Table
       dataToUpload = entries.filter(r => r.scored !== '');
     }
 
@@ -173,10 +137,10 @@ export default function MarksUploadPage() {
 
     setUploading(true);
     try {
-      const res = await fetch('/api/marks/upload', {
+      const res = await fetch('/api/admin/marks/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ marks: dataToUpload })
+        body: JSON.stringify({ marks: dataToUpload })
       });
 
       if (res.ok) {
@@ -215,6 +179,11 @@ body: JSON.stringify({ marks: dataToUpload })
         </button>
       </div>
 
+      {/* --- NOTIFICATION TOGGLE --- */}
+      <div className="mb-8 p-4 bg-white border border-gray-300 rounded-lg flex justify-between items-center shadow-sm">
+        <p className="text-gray-700">Enable notifications to get updates when marks are changed.</p>
+        <NotificationButton />
+      </div>
 
       {/* ================= CSV MODE ================= */}
       {activeTab === 'csv' && (
@@ -224,7 +193,7 @@ body: JSON.stringify({ marks: dataToUpload })
           <div className="bg-white p-10 rounded-xl shadow-sm border-2 border-dashed border-indigo-300 text-center hover:bg-indigo-50 transition relative">
             <input 
               type="file" 
-              accept=".csv"
+              accept=".csv, .xlsx"
               onChange={handleFileChange}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
