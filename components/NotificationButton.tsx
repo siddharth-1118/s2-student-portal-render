@@ -113,8 +113,7 @@ export default function NotificationReminder() {
 
       {permissionState === 'default' && (
         <button 
-          onClick={42}
-          style={{
+              onClick={enableNotifications}          style={{
             whiteSpace: 'nowrap',
             padding: '10px 20px',
             background: '#2563eb',
