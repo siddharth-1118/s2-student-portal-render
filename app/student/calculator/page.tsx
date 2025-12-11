@@ -30,14 +30,21 @@ export default function CalculatorPage() {
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">CGPA & SGPA Calculator</h1>
+    <div className="p-6 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">🎓 CGPA & SGPA Calculator</h1>
+      
       <div className="bg-white p-6 rounded-lg shadow-md text-black">
+        <div className="mb-4 grid grid-cols-12 gap-2 font-semibold text-gray-600 text-sm">
+            <div className="col-span-5">Subject</div>
+            <div className="col-span-3">Credit</div>
+            <div className="col-span-4">Grade</div>
+        </div>
+
         {subjects.map((sub, index) => (
-          <div key={index} className="flex gap-2 mb-3">
+          <div key={index} className="grid grid-cols-12 gap-2 mb-3">
             <input 
               placeholder="Subject Name" 
-              className="border p-2 rounded w-1/3"
+              className="col-span-5 border p-2 rounded"
               onChange={(e) => {
                 const newSubs = [...subjects];
                 newSubs[index].name = e.target.value;
@@ -46,8 +53,8 @@ export default function CalculatorPage() {
             />
             <input 
               type="number" 
-              placeholder="Credit" 
-              className="border p-2 rounded w-1/4"
+              placeholder="Cr" 
+              className="col-span-3 border p-2 rounded"
               onChange={(e) => {
                 const newSubs = [...subjects];
                 newSubs[index].credit = e.target.value;
@@ -55,7 +62,7 @@ export default function CalculatorPage() {
               }}
             />
             <select 
-              className="border p-2 rounded w-1/3"
+              className="col-span-4 border p-2 rounded"
               onChange={(e) => {
                 const newSubs = [...subjects];
                 newSubs[index].grade = e.target.value;
@@ -66,15 +73,22 @@ export default function CalculatorPage() {
               <option value="9">A+ (9)</option>
               <option value="8">A (8)</option>
               <option value="7">B+ (7)</option>
+              <option value="6">B (6)</option>
               <option value="0">Fail (0)</option>
             </select>
           </div>
         ))}
-        <div className="flex gap-4 mt-4">
-          <button onClick={addSubject} className="bg-gray-200 px-4 py-2 rounded text-black hover:bg-gray-300">+ Add Subject</button>
-          <button onClick={calculateSGPA} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Calculate</button>
+
+        <div className="flex gap-4 mt-6">
+          <button onClick={addSubject} className="bg-gray-100 px-4 py-2 rounded text-black hover:bg-gray-200 border">+ Add Subject</button>
+          <button onClick={calculateSGPA} className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 font-bold">Calculate Result</button>
         </div>
-        {result && <div className="mt-6 text-xl font-bold text-blue-600">{result}</div>}
+
+        {result && (
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded text-center">
+                <p className="text-xl font-bold text-blue-800">{result}</p>
+            </div>
+        )}
       </div>
     </div>
   );

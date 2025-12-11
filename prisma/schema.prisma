@@ -118,3 +118,12 @@ model PushSubscription {
   auth      String
   createdAt DateTime @default(now())
 }
+model Notification {
+  id        Int      @id @default(autoincrement())
+  email     String   // The person receiving the notification
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  studentId String?  // Optional: To link back to a student
+}

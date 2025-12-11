@@ -1,10 +1,13 @@
-import "./globals.css";
-import type { Metadata } from "next";
-import Providers from "./providers";
+import './globals.css';
+import { Inter } from 'next/font/google';
+import Providers from './providers'; // Assuming you have this
+import NotificationReminder from '@/components/NotificationReminder'; // 👈 IMPORT THIS
 
-export const metadata: Metadata = {
-  title: "SRM Student Portal",
-  description: "Student marks, timetable, and analytics",
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata = {
+  title: 'Student Portal',
+  description: 'Manage marks and timetable',
 };
 
 export default function RootLayout({
@@ -14,13 +17,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="manifest" href="/manifest.webmanifest" />
-        <meta name="theme-color" content="#0f172a" />
-      </head>
-      <body className="bg-slate-50">
-        {/* ✅ Now all pages (including Home) are wrapped in SessionProvider */}
-        <Providers>{children}</Providers>
+      <body className={inter.className}>
+        <Providers>
+          {children}
+          <NotificationReminder /> {/* 👈 ADD THIS HERE */}
+        </Providers>
       </body>
     </html>
   );

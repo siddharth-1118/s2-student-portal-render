@@ -3,23 +3,22 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import NotificationButton from '@/components/NotificationButton'; // Import exists
+import NotificationButton from '@/components/NotificationButton';
 
 export default function StudentProfile() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  
   const [profile, setProfile] = useState({
-    name: '',
-    registerNo: '',
-    email: '',
-    phone: '',
-    department: '',
-    year: '',
-    section: ''
+    name: '', registerNo: '', email: '', phone: '', department: '', year: '', section: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [isLocked, setIsLocked] = useState(false);
+  
+  // Query State
+  const [query, setQuery] = useState('');
+  const [sendingQuery, setSendingQuery] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
@@ -42,6 +41,8 @@ export default function StudentProfile() {
           year: data.year?.toString() || '',
           section: data.section || ''
         });
+        // SET LOCK STATUS
+        setIsLocked(data.profileCompleted === true);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -50,248 +51,132 @@ export default function StudentProfile() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setProfile(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked) return;
     setSaving(true);
-    setMessage('');
     
     try {
-      const response = await fetch('/api/student/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...profile,
-          year: profile.year ? parseInt(profile.year) : null
-        }),
+      const response = await fetch('/api/student/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...profile, profileCompleted: true }), // 🔒 Lock it on save
       });
       
-      const data = await response.json();
-      
       if (response.ok) {
-        setMessage('Profile saved successfully!');
-        window.location.reload();
+        alert('✅ Profile Saved & Locked!');
+        setIsLocked(true);
+        router.refresh();
       } else {
-        setMessage(data.error || 'Failed to save profile');
+        alert('Failed to save profile');
       }
     } catch (error) {
-      setMessage('Error saving profile');
       console.error('Error saving profile:', error);
     } finally {
       setSaving(false);
     }
   };
 
-  if (status === 'loading') {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-        <div style={{ width: '60px', height: '60px', border: '6px solid rgba(255,255,255,0.3)', borderTop: '6px solid white', borderRadius: '50%' }}></div>
-      </div>
-    );
-  }
+  const sendQuery = async () => {
+    if (!query) return alert("Please type a message first");
+    setSendingQuery(true);
+    try {
+      const res = await fetch('/api/student/query', {
+        method: 'POST',
+        body: JSON.stringify({ message: query })
+      });
+      if (res.ok) {
+        alert("Query sent to Admin! Check your notifications later.");
+        setQuery('');
+      } else {
+        alert("Failed to send query.");
+      }
+    } catch (e) {
+      alert("Error sending query");
+    } finally {
+      setSendingQuery(false);
+    }
+  };
 
-  if (!session) {
-    router.push('/');
-    return null;
-  }
-
-  const isProfileLocked = false; 
+  if (status === 'loading' || loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
+  if (!session) return null;
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '40px 20px' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', borderRadius: '20px', padding: '32px', marginBottom: '32px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', marginBottom: '24px' }}>
-            <div>
-              <h1 style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '8px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                📝 Student Profile
-              </h1>
-              <p style={{ fontSize: '14px', color: '#6b7280' }}>
-                Manage your personal information
-              </p>
-            </div>
-            <button 
-              onClick={() => router.push('/')} 
-              style={{ 
-                padding: '12px 24px', 
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '12px', 
-                fontSize: '14px', 
-                fontWeight: '600', 
-                cursor: 'pointer' 
-              }}
-            >
-              ← Back to Dashboard
-            </button>
+        <div style={{ background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', borderRadius: '20px', padding: '32px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+            <h1 style={{ fontSize: '28px', fontWeight: 'bold' }}>📝 Student Profile</h1>
+            <button onClick={() => router.push('/')} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #ccc' }}>← Back</button>
           </div>
 
-          {message && (
-            <div style={{ 
-              padding: '16px', 
-              borderRadius: '8px', 
-              backgroundColor: message.includes('success') ? '#dcfce7' : '#fee2e2', 
-              border: '1px solid ' + (message.includes('success') ? '#bbf7d0' : '#fecaca'), 
-              color: message.includes('success') ? '#166534' : '#991b1b', 
-              marginBottom: '24px' 
-            }}>
-              {message}
-            </div>
-          )}
-
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
-              <div style={{ width: '40px', height: '40px', margin: '0 auto 20px', border: '4px solid rgba(102, 126, 234, 0.3)', borderTop: '4px solid #667eea', borderRadius: '50%' }}></div>
-              <p>Loading profile...</p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>Full Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={profile.name}
-                    onChange={handleChange}
-                    disabled={isProfileLocked}
-                    required
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>Register Number</label>
-                  <input
-                    type="text"
-                    name="registerNo"
-                    value={profile.registerNo}
-                    onChange={handleChange}
-                    disabled={isProfileLocked}
-                    required
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={profile.email}
-                    disabled={true}
-                    required
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: '#f3f4f6' }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>Phone Number</label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={profile.phone}
-                    onChange={handleChange}
-                    disabled={isProfileLocked}
-                    required
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>Department</label>
-                  <select
-                    name="department"
-                    value={profile.department}
-                    onChange={handleChange}
-                    disabled={isProfileLocked}
-                    required
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
-                  >
-                    <option value="">Select Department</option>
-                    <option value="CSE">Computer Science & Engineering</option>
-                    <option value="IT">Information Technology</option>
-                    <option value="ECE">Electronics & Communication Engineering</option>
-                    <option value="EEE">Electrical & Electronics Engineering</option>
-                    <option value="MECH">Mechanical Engineering</option>
-                    <option value="CIVIL">Civil Engineering</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>Year</label>
-                  <select
-                    name="year"
-                    value={profile.year}
-                    onChange={handleChange}
-                    disabled={isProfileLocked}
-                    required
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
-                  >
-                    <option value="">Select Year</option>
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#374151' }}>Section</label>
-                  <input
-                    type="text"
-                    name="section"
-                    value={profile.section}
-                    onChange={handleChange}
-                    disabled={isProfileLocked}
-                    required
-                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '16px', backgroundColor: isProfileLocked ? '#f3f4f6' : 'white' }}
-                  />
-                </div>
-              </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button
+          {/* 🔒 LOCKED BANNER & QUERY BOX */}
+          {isLocked && (
+            <div style={{ marginBottom: '30px', padding: '20px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '12px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#c2410c', marginBottom: '8px' }}>🔒 Profile Locked</h3>
+              <p style={{ fontSize: '14px', color: '#9a3412', marginBottom: '12px' }}>
+                Your details are submitted. To make changes, message the admin:
+              </p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  type="text" 
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="e.g. Please unlock, I made a typo in phone number."
+                  style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #fdba74' }}
+                />
+                <button 
+                  onClick={sendQuery}
+                  disabled={sendingQuery}
                   type="button"
-                  onClick={() => router.push('/')}
-                  style={{ padding: '12px 24px', background: '#9ca3af', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
+                  style={{ padding: '10px 15px', background: '#ea580c', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isProfileLocked || saving}
-                  style={{ 
-                    padding: '12px 24px', 
-                    background: isProfileLocked ? '#d1d5db' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '12px', 
-                    fontSize: '14px', 
-                    fontWeight: '600', 
-                    cursor: isProfileLocked ? 'not-allowed' : 'pointer',
-                    opacity: isProfileLocked ? 0.7 : 1
-                  }}
-                >
-                  {saving ? 'Saving...' : 'Save Profile'}
+                  {sendingQuery ? 'Sending...' : 'Send'}
                 </button>
               </div>
-            </form>
+            </div>
           )}
 
-          {/* ADDED NOTIFICATION BUTTON HERE */}
-          <NotificationButton />
-          
+          <form onSubmit={handleSubmit}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ fontWeight: 'bold' }}>Full Name</label>
+                <input type="text" value={profile.name} disabled style={{ width: '100%', padding: '10px', background: '#e5e7eb', borderRadius: '6px' }} />
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold' }}>Register No</label>
+                <input type="text" value={profile.registerNo} onChange={(e) => setProfile({...profile, registerNo: e.target.value})} disabled={isLocked} style={{ width: '100%', padding: '10px', background: isLocked ? '#f3f4f6' : 'white', border: '1px solid #ccc', borderRadius: '6px' }} />
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold' }}>Phone</label>
+                <input type="text" value={profile.phone} onChange={(e) => setProfile({...profile, phone: e.target.value})} disabled={isLocked} style={{ width: '100%', padding: '10px', background: isLocked ? '#f3f4f6' : 'white', border: '1px solid #ccc', borderRadius: '6px' }} />
+              </div>
+              <div>
+                <label style={{ fontWeight: 'bold' }}>Department</label>
+                <select value={profile.department} onChange={(e) => setProfile({...profile, department: e.target.value})} disabled={isLocked} style={{ width: '100%', padding: '10px', background: isLocked ? '#f3f4f6' : 'white', border: '1px solid #ccc', borderRadius: '6px' }}>
+                  <option value="">Select</option>
+                  <option value="CSE">CSE</option>
+                  <option value="ECE">ECE</option>
+                  <option value="EEE">EEE</option>
+                  <option value="MECH">MECH</option>
+                </select>
+              </div>
+            </div>
+
+            {!isLocked && (
+              <button type="submit" disabled={saving} style={{ width: '100%', padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+                {saving ? 'Saving...' : 'Save & Lock Profile'}
+              </button>
+            )}
+          </form>
+
+          {/* PUSH NOTIFICATION BUTTON */}
+          <div style={{ marginTop: '30px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+             <p style={{marginBottom: '10px', fontWeight: 'bold'}}>Device Notifications</p>
+             <NotificationButton />
+          </div>
+
         </div>
       </div>
     </div>
