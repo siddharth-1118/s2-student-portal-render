@@ -96,6 +96,44 @@ export default function AdminStudentsPage() {
               ← Back to Dashboard
             </button>
           </div>
+          {/* ... inside your header section ... */}
+
+<div style={{ display: 'flex', gap: '10px' }}>
+  
+  {/* NEW NOTIFY BUTTON */}
+  <button 
+    onClick={() => router.push('/admin/notify')} 
+    style={{ 
+      padding: '12px 24px', 
+      background: '#f59e0b', // Orange color
+      color: 'white', 
+      border: 'none', 
+      borderRadius: '12px', 
+      fontSize: '14px', 
+      fontWeight: '600', 
+      cursor: 'pointer' 
+    }}
+  >
+    🔔 Send Notification
+  </button>
+
+  {/* Existing Back Button */}
+  <button 
+    onClick={() => router.push('/')} 
+    style={{ 
+      padding: '12px 24px', 
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+      color: 'white', 
+      border: 'none', 
+      borderRadius: '12px', 
+      fontSize: '14px', 
+      fontWeight: '600', 
+      cursor: 'pointer' 
+    }}
+  >
+    ← Back to Dashboard
+  </button>
+</div>
         </div>
 
         {/* Search Bar */}
@@ -181,68 +219,55 @@ export default function AdminStudentsPage() {
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f3f4f6' }}>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>Register No</th>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>Name</th>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>Email</th>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>Marks Count</th>
-                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600', color: '#374151' }}>Subjects</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredStudents.map((student) => (
-                    <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                      <td style={{ padding: '12px', fontFamily: 'monospace', color: '#374151' }}>{student.registerNo}</td>
-                      <td style={{ padding: '12px', fontWeight: '500', color: '#111827' }}>{student.name}</td>
-                      <td style={{ padding: '12px', color: student.email ? '#374151' : '#9ca3af' }}>
-                        {student.email || 'Not registered'}
-                      </td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>
-                        <span style={{ 
-                          padding: '4px 8px', 
-                          borderRadius: '12px', 
-                          // SAFE CHECKS ADDED HERE
-                          backgroundColor: student.marks?.length > 0 ? '#dcfce7' : '#fee2e2',
-                          color: student.marks?.length > 0 ? '#166534' : '#991b1b',
-                          fontSize: '12px',
-                          fontWeight: '600'
-                        }}>
-                          {student.marks?.length || 0}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px', color: '#6b7280' }}>
-                        {/* SAFE CHECKS ADDED HERE */}
-                        {student.marks?.length > 0 ? (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            {Array.from(new Set(student.marks.map((mark: any) => mark.subject))).slice(0, 3).map((subject: any, index: number) => (
-                              <span key={index} style={{ 
-                                padding: '2px 6px', 
-                                borderRadius: '4px', 
-                                backgroundColor: '#f3f4f6',
-                                fontSize: '11px'
-                              }}>
-                                {subject}
-                              </span>
-                            ))}
-                            {Array.from(new Set(student.marks.map((mark: any) => mark.subject))).length > 3 && (
-                              <span style={{ 
-                                padding: '2px 6px', 
-                                borderRadius: '4px', 
-                                backgroundColor: '#f3f4f6',
-                                fontSize: '11px'
-                              }}>
-                                +{Array.from(new Set(student.marks.map((mark: any) => mark.subject))).length - 3} more
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span style={{ color: '#9ca3af' }}>No subjects</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                {/* ... inside app/admin/students/page.tsx ... */}
+
+{/* Update the Table Headers */}
+<thead>
+  <tr style={{ backgroundColor: '#f3f4f6' }}>
+    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600' }}>Register No</th>
+    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600' }}>Name</th>
+    
+    {/* 🟢 NEW COLUMNS ADDED */}
+    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600' }}>Phone</th>
+    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600' }}>Dept / Year</th>
+    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600' }}>Section</th>
+    
+    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb', fontWeight: '600' }}>Marks Count</th>
+  </tr>
+</thead>
+
+{/* Update the Table Body */}
+<tbody>
+  {filteredStudents.map((student) => (
+    <tr key={student.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+      <td style={{ padding: '12px', fontFamily: 'monospace', color: '#374151' }}>{student.registerNo}</td>
+      <td style={{ padding: '12px', fontWeight: '500', color: '#111827' }}>{student.name}</td>
+      
+      {/* 🟢 DISPLAY NEW DETAILS */}
+      <td style={{ padding: '12px', color: '#4b5563' }}>
+        {student.phone || <span style={{color:'#f87171'}}>No Phone</span>}
+      </td>
+      <td style={{ padding: '12px', color: '#4b5563' }}>
+        {student.department ? `${student.department} - ${student.year}` : '-'}
+      </td>
+      <td style={{ padding: '12px', fontWeight:'bold', color: '#4b5563' }}>
+        {student.section || '-'}
+      </td>
+
+      <td style={{ padding: '12px', textAlign: 'center' }}>
+        <span style={{ 
+          padding: '4px 8px', 
+          borderRadius: '12px', 
+          backgroundColor: student.marks?.length > 0 ? '#dcfce7' : '#fee2e2',
+          color: student.marks?.length > 0 ? '#166534' : '#991b1b',
+          fontSize: '12px', fontWeight: '600'
+        }}>
+          {student.marks?.length || 0}
+        </span>
+      </td>
+    </tr>
+  ))}
+</tbody>
               </table>
             </div>
           )}
