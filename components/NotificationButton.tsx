@@ -39,6 +39,16 @@ export default function NotificationReminder() {
 
   const enableNotifications = async () => {
     try {
+
+            // Request notification permission FIRST
+      const permission = await Notification.requestPermission();
+      
+      // If user denies permission, stop here
+      if (permission !== 'granted') {
+        alert('❌ Notification permission denied. Please enable notifications in your browser settings.');
+        return;
+      }
+
       const register = await navigator.serviceWorker.ready;
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       
@@ -103,7 +113,7 @@ export default function NotificationReminder() {
 
       {permissionState === 'default' && (
         <button 
-          onClick={enableNotifications}
+          onClick={42}
           style={{
             whiteSpace: 'nowrap',
             padding: '10px 20px',
