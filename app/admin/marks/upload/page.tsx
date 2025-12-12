@@ -9,8 +9,9 @@ export default function MarksEntryPage() {
   const router = useRouter();
   const [students, setStudents] = useState<any[]>([]);
   
-  // NEW STATE: Max Marks
+  // NEW STATE: Max Marks and Exam Type
   const [subject, setSubject] = useState('');
+  const [examType, setExamType] = useState('Internal'); // NEW: Exam Type
   const [maxMarks, setMaxMarks] = useState(100); 
   const [marks, setMarks] = useState<Record<string, string>>({}); 
   const [loading, setLoading] = useState(false);
@@ -27,12 +28,15 @@ export default function MarksEntryPage() {
 
   const handleSubmit = async () => {
     if (!subject) return alert("Please enter a Subject Name first!");
+    if (!examType) return alert("Please select an Exam Type!");
     
     setLoading(true);
+
     const marksPayload = Object.entries(marks).map(([studentId, mark]) => ({
       studentId,
       registerNo: students.find(s => s.id === studentId)?.registerNo,
       subject,
+      examType, // SEND EXAM TYPE TO API
       mark: Number(mark),
       maxMarks: Number(maxMarks) // SEND MAX MARKS TO API
     })).filter(entry => entry.mark > 0); 
@@ -48,7 +52,8 @@ export default function MarksEntryPage() {
         alert('Marks Uploaded Successfully!');
         router.push('/admin/marks'); 
       } else {
-        alert('Failed to upload marks');
+        const errorData = await res.json();
+        alert(`Failed to upload marks: ${errorData.message || res.statusText}`);
       }
     } catch (e) {
       console.error(e);
@@ -79,6 +84,21 @@ export default function MarksEntryPage() {
             />
           </div>
 
+          {/* Exam Type Dropdown */}
+          <div style={{ flex: 1, padding: '20px', background: '#fef3c7', borderRadius: '12px', border: '1px solid #fcd34d' }}>
+            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', color: '#92400e' }}>Exam Type</label>
+            <select 
+              value={examType}
+              onChange={(e) => setExamType(e.target.value)}
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #fbbf24', fontSize: '16px', fontWeight: 'bold' }}
+            >
+              <option value="Internal">Internal</option>
+              <option value="External">External</option>
+              <option value="Midterm">Midterm</option>
+              <option value="Final">Final</option>
+            </select>
+          </div>
+
           {/* Max Marks Input */}
           <div style={{ flex: 1, padding: '20px', background: '#fff7ed', borderRadius: '12px', border: '1px solid #fed7aa' }}>
             <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', color: '#c2410c' }}>Max Marks</label>
@@ -90,7 +110,6 @@ export default function MarksEntryPage() {
               style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #fdba74', fontSize: '16px', fontWeight: 'bold' }}
             />
           </div>
-
         </div>
 
         {/* Students Table */}
