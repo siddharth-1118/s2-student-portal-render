@@ -19,12 +19,18 @@ export async function POST(req: Request) {
 
     // 2. SAVE MARKS TO DATABASE
     for (const entry of marks) {
+      // Validate required fields
+      if (!entry.studentId || !entry.subject || !entry.examType) {
+        console.error('Missing required fields:', entry);
+        continue; // Skip invalid entries
+      }
+
       // Logic to upsert (create or update) marks
       const existingMark = await prisma.mark.findFirst({
         where: {
           studentId: entry.studentId,
           subject: entry.subject,
-          examType: 'Internal',
+          examType: entry.examType, // Use examType from request
         }
       });
 
@@ -43,7 +49,7 @@ export async function POST(req: Request) {
             subject: entry.subject,
             scored: Number(entry.mark),
             maxMarks: Number(entry.maxMarks || 100),
-            examType: 'Internal',
+            examType: entry.examType, // Use examType from request
           }
         });
       }
@@ -58,7 +64,7 @@ export async function POST(req: Request) {
         // B. Define the message
         const payload = JSON.stringify({
           title: '📢 New Marks Uploaded!',
-          body: `Your marks for ${entry.subject} have been released: ${entry.mark}/${entry.maxMarks || 100}`,
+          body: `Your marks for ${entry.subject} (${entry.examType}) have been released: ${entry.mark}/${entry.maxMarks || 100}`,
           icon: '/icons/icon-192.png', // Ensure you have this icon in public/icons
           url: '/student/marks'
         });
@@ -86,6 +92,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Bulk Upload Error:', error);
-    return NextResponse.json({ error: 'Failed to save marks' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to save marks', message: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
 }
